@@ -6,4 +6,10 @@
     plural: "TNL",
     long: "Template Numerical Library",
   ),
+  (
+    key: "cat",
+    short: "CAI",
+    plural: "CAI",
+    long: "CUDA Array Interface",
+  ),
 )
