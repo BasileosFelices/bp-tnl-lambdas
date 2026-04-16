@@ -9,7 +9,7 @@
   display-lang: true,
   inset: (right: 0.15em),
   lang-outset: (x: 0em, y: 0em),
-  line-numbers: true,
+  line-numbers: false,
   placement: none,
   ..pass
 ) = {
@@ -28,7 +28,7 @@
     languages: codly-languages,
     zebra-fill: none,
   )
-  // codly(number-format: if line-numbers { numbering.with("1") } else { none })
+  codly(number-format: if line-numbers { numbering.with("1") } else { none })
   
   [
     #figure(
