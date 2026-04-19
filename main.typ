@@ -711,7 +711,154 @@ These results validate the central thesis of this chapter: exposing PyTNL's memo
 
 == PDLP Solver
 
-== SPH???????
+== TNL-SPH
+
+// https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5671636
+
+TNL-SPH is an open-source implementation of Smoothed Particle Hydrodynamics (SPH) built on top of the TNL. 
+
+=== PyTNL goals - workflow
+
+// TODO: Describe current user flow - python init - generated configs - manual compilation - python run of cpp compiled code
+// TODO: Describe the goals, what the workflow could be simplified to
+// TODO: Describe the approach of while loop compared to single run function and the option for user defined functions
+
+=== Template instantiation <sph_template_instantiation>
+
+TNL-SPH is a heavily templated #cpp library. The simulation's behaviour is configured at compile time through a set of template parameters that select, among other things, the boundary condition type, viscous and diffusive terms, spatial dimension, floating-point precision, and target device. In native #cpp code, these choices are expressed as template arguments to the core simulation class and are resolved entirely by the compiler.
+
+// TODO: consider adding a brief code snippet showing the C++ template parameter list if it helps the reader
+
+This design is idiomatic in performance-oriented #cpp libraries: the compiler specialises every function for the exact combination of types, enabling aggressive inlining, constant folding, and elimination of unused branches. The cost is that each distinct combination of parameters produces a separate template instantiation that must be compiled.
+
+When exposing such a library through Python bindings, each template instantiation becomes a distinct #cpp type that Nanobind must wrap individually. Unlike #cpp, where the compiler instantiates templates on demand, the binding layer requires every combination to be explicitly enumerated and compiled in advance. There is no mechanism in Nanobind (or pybind11) to defer template instantiation to runtime --- the set of supported types is fixed at the time the extension module is built.
+
+For the SPH solver, the compile-time configuration axes and their options are:
+
+#figure(
+  table(
+    columns: (auto, auto, auto),
+    align: (left, left, left),
+    inset: (x: 8pt, y: 10pt),
+    table.header(
+      [*Parameter*], [*Options*], [*Count*],
+    ),
+    [Boundary condition], [DBC, MDBC], [2],
+    [Diffusive term], [None, Molteni, Fourtakas], [3],
+    [Viscous term], [Artificial, Physical, Combined], [3],
+    [Kernel function], [Wendland], [1],
+    [Time stepping], [Constant, Variable], [2],
+    [Device], [Host (CPU), CUDA (GPU)], [2],
+    [Precision], [float, double], [2],
+    [Dimension], [2D, 3D], [2],
+  ),
+  caption: [Compile-time configuration axes of the SPH solver and their respective options.],
+) <sph_template_axes>
+
+The total number of distinct combinations is:
+$ 2 times 3 times 3 times 1 times 2 times 2 times 2 times 2 = 288 $
+
+Pre-compiling all 288 variants into a single extension module is impractical for several reasons. First, CUDA compilation through `nvcc` is slow --- each variant requires processing the entire heavily-templated SPH header hierarchy, and the total build time would be measured in hours. Second, the resulting binary would be enormous, as each instantiation duplicates a substantial amount of generated machine code. Third, any change to the set of options (adding a new kernel function, for example) would multiply the variant count further.
+
+// TODO: maybe mention that the traditional TNL-SPH workflow solves this by compiling only one variant at a time via text substitution in C++ headers? This was described in the "PyTNL goals - workflow" section above; check if a forward/backward reference is appropriate here.
+
+In practice, a given user typically needs only a handful of variants for their particular simulation case. The challenge is therefore not to compile all possible combinations, but to compile _only the requested one_, on demand, and cache the result for future use. This is the motivation for the code generation approach described in the following section.
+
+=== Code generation <sph_code_generation>
+
+To avoid the combinatorial explosion of pre-compiled variants, the approach taken generates and compiles a standalone #cpp plugin for each requested combination of template parameters at runtime. The plugin is compiled once, cached on disk, and loaded into the running Python process via dynamic linking. Subsequent runs with the same configuration skip compilation entirely.
+
+==== Variant specification
+
+The eight compile-time axes are modelled in Python as `Enum` classes whose `.value` strings correspond to the exact #cpp type names used in substitution. A frozen dataclass `VariantSpec` bundles all axes into a single hashable, immutable descriptor. Its `variant_id()` method produces a filesystem-safe string (e.g., `wcsph_dbc_2d_cuda_float_dbc_molteni_artificial`) that serves as both the cache key and the generated CMake project name.
+
+// TODO: consider showing a short Python snippet of VariantSpec construction if it aids readability
+
+==== Source generation
+
+The code generator uses simple `{{TOKEN}}` placeholder substitution --- no external templating engine such as Jinja2 is required, keeping the dependency footprint minimal. After substitution, a regex check verifies that no unresolved `{{UPPER_CASE}}` placeholders remain, catching typos and missing parameters early.
+
+For each variant, two files are produced:
+
++ *`plugin.cpp`* --- a self-contained #cpp translation unit (~210 lines) that defines the fully-resolved type aliases for the particle system configuration, SPH parameters, and the simulation model. It then exports three `extern "C"` entry points: `sph_create()`, `sph_destroy()`, and `sph_variant_id()`. The `extern "C"` linkage prevents #cpp name mangling and establishes a stable C ABI across separately compiled modules.
+
++ *`CMakeLists.txt`* --- a standalone CMake project that builds the plugin as a shared library (`plugin.so`). It reuses the exact compilers, C++ standard (C++20), and include paths from the original PyTNL-SPH build through a `build_info` module, ensuring ABI compatibility between the host extension and the dynamically loaded plugins.
+
+// TODO: Consider including a simplified/abbreviated listing of the generated plugin.cpp to show the structure (type aliases → extern "C" entry points). Check if it fits the page budget.
+
+==== Build and cache
+
+Compiled plugins are stored in a per-user cache directory (`~/.cache/pytnl_sph/` by default, configurable via an environment variable). Each variant occupies its own subdirectory containing the generated sources and the compiled shared library:
+
+#code1(
+  [Cache directory layout for a single compiled SPH variant. The `build/` subdirectory contains CMake artefacts and the final shared library.],
+  <sph_cache_layout>,
+  ```
+  ~/.cache/pytnl_sph/
+    wcsph_dbc_2d_cuda_float_dbc_molteni_artificial/
+      plugin.cpp
+      CMakeLists.txt
+      build/
+        plugin.so
+  ```,
+)
+
+When a variant is requested, the system first checks whether `plugin.so` already exists in the cache. On a cache hit, the plugin is loaded immediately with negligible overhead. On a cache miss, the system generates the sources, invokes CMake to configure and build the project, and stores the result. Compilation output is streamed to the user in real time so that build progress and any errors are immediately visible.
+
+// TODO: mention approximate compilation time for a single variant? (e.g., "typically 30--60 seconds for a CUDA variant on the test machine") --- measure and fill in
+
+==== Plugin loading and virtual dispatch
+
+The compiled `plugin.so` is loaded into the Python process via `dlopen` with `RTLD_NOW | RTLD_LOCAL`. The `RTLD_NOW` flag ensures all symbols are resolved at load time, surfacing linking errors immediately. The `RTLD_LOCAL` flag keeps the plugin's symbols private, allowing multiple variants to coexist in a single process without symbol conflicts.
+
+Communication between the host extension module and the plugin proceeds through a pure virtual #cpp interface `ISimulation`. This interface uses only simple types (`float`, `int`, `std::string`) --- no TNL types cross the ABI boundary. The plugin's `sph_create()` function returns a pointer to a `ConcreteSimulation<Model>`, which implements `ISimulation` by wrapping the fully-templated SPH simulation object through composition rather than inheritance. This avoids known issues with CUDA and virtual base classes.
+
+// TODO: briefly explain _why_ composition is preferred over inheritance here --- is it specifically the CUDA device-side vtable issue, or something else? Clarify for the reader.
+
+The `ISimulation` interface exposes the individual phases of the simulation time step as separate methods: `performNeighborSearch()`, `interact()`, `computeTimeStep()`, `integrateVerletStep()`, and others. This granularity is deliberate: it allows the Python-side time loop to interleave arbitrary user logic between the compute-heavy #cpp phases. All compute methods release the Python GIL during execution, ensuring that the interpreter is not blocked during long-running GPU or multi-threaded CPU computations.
+
+==== User-facing API
+
+From the user's perspective, the entire compilation and loading pipeline is hidden behind a single factory function. The user specifies the desired configuration through Python keyword arguments, and the factory either loads a cached plugin or triggers compilation transparently:
+
+// TODO: replace with actual API snippet from the codebase once the interface is finalized
+#code1(
+  [Creating an SPH simulation with JIT-compiled variant selection. The factory function handles code generation, compilation, caching, and plugin loading transparently.],
+  <sph_jit_usage_example>,
+  ```python
+  from pytnl_sph.jit import create_simulation, VariantSpec
+
+  sim = create_simulation(
+      bc_type="DBC",
+      diffusive_term="MOLTENI",
+      viscous_term="ARTIFICIAL",
+      device="CUDA",
+      precision="DOUBLE",
+      dimension=2,
+  )
+
+  sim.init()
+  while sim.get_time() < sim.get_end_time():
+      sim.run_time_step()
+      # --- user logic can be inserted here ---
+  sim.write_epilog()
+  ```,
+)
+
+The Python `while` loop replaces the fixed #cpp time loop that was previously compiled into the binary. Because each time-step phase is a separate method call, users can insert diagnostics, custom post-processing, or even protocol-based Numba kernels (as described in the preceding chapter) between phases --- without modifying or recompiling any #cpp code.
+
+// TODO: compare the traditional three-step workflow (init.py → cmake build → run binary) with this single-script approach in a concise table or paragraph? The "PyTNL goals - workflow" section should set this up; verify it does.
+
+=== Summary
+
+The code generation approach successfully addresses the combinatorial explosion inherent in pre-compiling all template variants. Instead of building 288 possible instantiations ahead of time, only the specific variant requested by the user is compiled, cached, and dynamically loaded. The compilation is fully automated and transparent to the user, who interacts with a single Python factory function.
+
+// TODO: add measured compilation times and compare with the traditional full-project rebuild to quantify the practical improvement
+
+The plugin architecture also enables the Python-side time loop, which is a qualitative improvement over the traditional workflow. Users gain the ability to insert arbitrary Python logic --- including the JIT-compiled buffer operations demonstrated earlier --- between simulation phases, without touching any #cpp code. This bridges the gap between the performance of a fully compiled solver and the flexibility of a scripting environment.
+
+// TODO: discuss whether user-defined functions (e.g., custom force terms) could be integrated into this pipeline --- either via the Numba/protocol approach from the previous chapter, or by extending the code generation to accept user-supplied C++ snippets. Evaluate trade-offs.
+// TODO: mention any current limitations or known issues (e.g., first-compilation latency, dependency on matching compiler versions, no Windows support?)
 
 = Julia ?
 
