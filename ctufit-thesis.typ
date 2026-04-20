@@ -399,13 +399,12 @@
 
   title-page
 
-  // {
-  //   pagebreak()
-  //   [
-  //     *Replace this page with the official assignment. \
-  //     Místo této strany sem patří list se zadáním závěrečné práce.*
-  //   ]
-  // }
+    {
+     pagebreak()
+     page(margin: 0pt)[
+      #image("assets/spelifil-assignment.pdf", width: 100%, height: 100%)
+    ]
+   }
 
   {
     pagebreak()
