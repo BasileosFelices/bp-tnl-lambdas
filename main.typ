@@ -1,5 +1,5 @@
 #import "ctufit-thesis.typ": *
-#import "@preview/fletcher:0.5.7" as fletcher: diagram, node, edge
+#import "@preview/fletcher:0.5.7" as fletcher: diagram, edge, node
 
 #let cpp = [C++]
 
@@ -9,11 +9,10 @@
 ]
 
 #let declaration = [
-  TODO
-  // I hereby declare that the presented thesis is my own work and that I have cited all sources of information in accordance with the Guideline for adhering to ethical principles when elaborating an academic final thesis. I declare that I have used AI tools during the preparation and writing of my thesis. I have verified the generated content. I confirm that I am aware that I am fully responsible for the content of the thesis.
-  // \
-  // \
-  // I acknowledge that my thesis is subject to the rights and obligations stipulated by the Act No. 121/2000 Coll., the Copyright Act, as amended. In accordance with Section 2373(2) of Act No. 89/2012 Coll., the Civil Code, as amended, I hereby grant a non-exclusive authorization (licence) to utilize this thesis, including all computer programs that are part of it or attached to it and all documentation thereof (hereinafter collectively referred to as the "Work"), to any and all persons who wish to use the Work. Such persons are entitled to use the Work in any manner that does not diminish the value of the Work and for any purpose (including use for profit). This authorisation is unlimited in time, territory and quantity.
+  I hereby declare that the presented thesis is my own work and that I have cited all sources of information in accordance with the Guideline for adhering to ethical principles when elaborating an academic final thesis. I declare that I have used AI tools during the preparation and writing of my thesis. I have verified the generated content. I confirm that I am aware that I am fully responsible for the content of the thesis.
+  \
+  \
+  I acknowledge that my thesis is subject to the rights and obligations stipulated by the Act No. 121/2000 Coll., the Copyright Act, as amended. In accordance with Section 2373(2) of Act No. 89/2012 Coll., the Civil Code, as amended, I hereby grant a non-exclusive authorization (license) to utilize this thesis, including all computer programs that are part of it or attached to it and all documentation thereof (hereinafter collectively referred to as the "Work"), to any and all persons who wish to use the Work. Such persons are entitled to use the Work in any manner that does not diminish the value of the Work and for any purpose (including use for profit). This authorization is unlimited in time, territory and quantity.
 ]
 
 #let abstract-ENG = [
@@ -25,7 +24,7 @@
 ]
 
 #show: ctufit-thesis.with(
-  title: "Interfaces for TNL library data structures and algorithms in Python and Julia",
+  title: "Interfaces for TNL data structures and algorithms in Python and Julia",
   author-full: "Filip Špelina",
   author-surnames: "Špelina",
   author-given-names: "Filip",
@@ -85,12 +84,15 @@
 //   }
 // }
 
-= CUDA, GPU computations
+= Introduction
 
-// short intro 
+== CUDA, GPU computations
 
-= Introduction to TNL
+// short intro
 
+== Introduction to TNL
+
+== PyTNL
 
 // == PyTorch, TensorFlow??
 
@@ -102,9 +104,60 @@
 
 == Numba <numba_introduction>
 
-== NVRTC
+== NVRTC <nvrtc_introduction>
 
 == Benchmark <function_calling_from_cpp_benchmark>
+
+#figure(
+  table(
+    columns: (1fr, auto, auto, auto, auto),
+    align: (left, left, left, right, right),
+    inset: (x: 8pt, y: 10pt),
+    table.header([*Method*], [*Binding*], [*Callback*], [*Avg \ (ms/iter)*], [*vs baseline*]),
+    [Python list], [—], [—], [82.589], [(baseline)],
+    [Python `DoubleVector`], [—], [—], [237.579], [2.9× slower],
+    [NumPy `*= 2.0`], [—], [—], [0.757], [109.1× faster],
+    [C++ `multiplyAll`], [—], [—], [1.222], [67.6× faster],
+    [`mapAll`], [`nb::object`], [Python λ], [167.431], [2.0× slower],
+    [`mapAll`], [`nb::callable`], [Python λ], [169.207], [2.0× slower],
+    [`mapAll`], [`nb::callable`], [`@jit`], [379.349], [4.6× slower],
+    [`mapAll`], [`std::function`], [`@jit`], [402.222], [4.9× slower],
+    [`forAll`], [fn ptr], [`@cfunc`], [10.584], [7.8× faster],
+    [`seqFor`], [fn ptr], [`@cfunc`], [5.356], [15.4× faster],
+    table.hline(stroke: 1.5pt),
+  ),
+  caption: [
+    Scenario A --- element-wise multiply (`vec[i] *= 2.0`), $N = 2^(21) = 2 thin 097 thin 152$
+    sorted by calling strategy. Baseline is plain Python list iteration.
+    Benchmark ran on a PC with Ryzen 3600 CPU in WSL2 environment.
+  ],
+) <benchmark_scenario_a_table>
+
+#figure(
+  table(
+    columns: (1fr, auto, auto, auto, auto),
+    align: (left, left, left, right, right),
+    inset: (x: 8pt, y: 10pt),
+    table.header([*Method*], [*Binding*], [*Callback*], [*Avg \ (ms/iter)*], [*vs baseline*]),
+    [Python list], [—], [Python fn], [475.667], [(baseline)],
+    [Python list], [—], [`@jit` fn], [346.476], [1.4× faster],
+    [Python `DoubleVector`], [—], [—], [743.670], [1.6× slower],
+    [NumPy vectorized], [—], [—], [59.106], [8.0× faster],
+    [C++ `heavyComputeAll`], [—], [—], [34.620], [13.7× faster],
+    [`mapAll`], [`nb::object`], [Python fn], [567.003], [1.2× slower],
+    [`mapAll`], [`nb::callable`], [Python fn], [566.121], [1.2× slower],
+    [`mapAll`], [`nb::callable`], [`@jit` fn], [312.681], [1.5× faster],
+    [`mapAll`], [`std::function`], [`@jit` fn], [339.663], [1.4× faster],
+    [`forAll`], [fn ptr], [`@cfunc`], [35.144], [13.5× faster],
+    [`seqFor`], [fn ptr], [`@cfunc`], [34.775], [13.7× faster],
+    table.hline(stroke: 1.5pt),
+  ),
+  caption: [
+    Scenario B --- heavier element-wise compute ($sin(x) + cos(x) dot sqrt(|x|+1)$), $N = 2^(21) = 2 thin 097 thin 152$
+    sorted by calling strategy. Baseline is plain Python list with a Python function.
+    Benchmark ran on a PC with Ryzen 3600 CPU in WSL2 environment.
+  ],
+) <benchmark_scenario_b_table>
 
 == Other Python libraries
 
@@ -116,21 +169,18 @@
 
 === NumPy
 
+// TODO: mention inspiration from some libraries described above?
 === JAX
 
+// TODO: The header looks weird in TOC because of the newline, fix
+= Accessing #cpp \ managed memory
 
-= Accessing #cpp  \ managed memory
+The previous chapter demonstrated that calling Python functions from #cpp is either impractical or prohibitively slow. These findings motivated the exploration of an alternative approach: rather than passing Python callbacks into the #cpp runtime, the data structures themselves can be exposed in a way that allows user-defined functions to operate on them directly from Python. As the benchmark in @function_calling_from_cpp_benchmark suggests, the dominant performance bottleneck lies in the repeated crossings of the language boundary, so eliminating those crossings is the primary objective.
 
-As calling and executing functions defined in Python from #cpp seem to be either unpractical or too slow. Therefore, alternative approaches were explored. With the goal being finding a way to allow custom modification of data held in TNL data structures, it's possible to invert the flow from Python to #cpp. 
-
-Instead of passing and binding the Python functions to the #cpp side of the code, we can expose the data structures in way where we could natively run the user defined functions on them right from Python. As the benchmark suggests the biggest slowdown occurred in the crossings of the language boundaries.
-
-Inverting the flow this way may eliminate this transfer as instead of passing each element, the TNL data structure will produce an interface that allows direct access to the underlying data in the memory. The consumer can read and even modify the data in place with no further need to call the PyTNL bindings or TNL functions. 
-
-Following three protocols described here were chosen for two primary reasons. Firstly Numba library described in @numba_introduction, or it's Numba-cuda counterpart, offers out of the box support for them. Numba JIT compiled functions can natively consume the interfaces with a relatively pleasant user experience as I will try to demonstrate later in the chapter.
+To this end, the approach taken in this chapter inverts the control flow. Instead of the #cpp side invoking a user-supplied function for each element, a TNL data structure produces an interface that grants direct access to its underlying memory. The consumer can then read and modify the data in place, with no further need to invoke the PyTNL bindings or TNL functions during the computation itself. The language boundary is crossed only once --- when the memory view is exported --- rather than on every element access.
 
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html#dlpack-an-in-memory-tensor-structure
-Secondly, all interfaces mentioned here come recommended in the Python Array API Standard for data transfers between different libraries and as such are likely to be most adopted in the Python ecosystem.
+The three data interchange protocols described in this chapter were selected for two reasons. First, the Numba library introduced in @numba_introduction, as well as its CUDA counterpart, provides out-of-the-box support for consuming them. Numba JIT-compiled functions can natively operate on the exported interfaces, yielding a convenient user experience that is demonstrated later in the chapter. Second, all three protocols are recommended by the Python Array API Standard as the preferred mechanisms for data exchange between libraries, making them the most widely adopted conventions in the Python scientific ecosystem.
 
 
 == Python Array API Standard
@@ -138,7 +188,7 @@ Secondly, all interfaces mentioned here come recommended in the Python Array API
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html#dlpack-an-in-memory-tensor-structure
 // https://data-apis.org/array-api/2025.12/purpose_and_scope.html
 
-Python ecosystem currently offers many libraries that offer implementations of multidimensional arrays. Examples include already mentioned NumPy, Polars and CuPy but also libraries more focused like Pytorch or Tenserflow for deep learning. Most importantly, TNL and it's `NDArray` fits right in as well.
+Python ecosystem currently offers many libraries that offer implementations of multidimensional arrays. Examples include already mentioned NumPy, Polars and CuPy but also libraries more focused like Pytorch or TensorFlow for deep learning. Most importantly, TNL and it's `NDArray` fits right in as well.
 
 While the interfaces often share similarities, as they are frequently inspired by NumPy, the historical standard for numerical computing in Python, their subtle inconsistencies make it difficult to write portable code that can seamlessly operate across multiple libraries.
 
@@ -151,7 +201,7 @@ The interoperability can be achieved either by Python's duck typing, or, more im
 
 I list the requirements in @array_standard_interchange_requirements_table. For our use case, that is allowing Numba's JIT compiled functions to execute upon the PyTNL's array, the most important requirement is allowing the zero-copy view. Forcing a copy, be it inside the same memory block or worse, from one device memory to another, would likely once again invalidate all the performance gains the function compilation provides in the first place.
 
-It's of course similarly important to offer multi device support, as the (Py)TNL is built with device support in mind as well. However, this requirement can be be easily circumvented by simply supporting multiple different protocols. 
+It's of course similarly important to offer multi device support, as the (Py)TNL is built with device support in mind as well. However, this requirement can be be easily circumvented by simply supporting multiple different protocols.
 
 
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html
@@ -161,51 +211,56 @@ It's of course similarly important to offer multi device support, as the (Py)TNL
     // stroke: none,
     // gutter: 0.8em,
     inset: (x: 8pt, y: 12pt),
-    
+
     // Academic Header
     table.header(
       // table.hline(stroke: 1.5pt),
       [*Component*], [*Requirement and Rationale*],
       // table.hline(stroke: 0.5pt),
     ),
-    
+
     // Row 1
-    [*Memory Layout*], [
+    [*Memory Layout*],
+    [
       Data access via a protocol that describes the memory layout of the array in an implementation-independent manner.
-      
+
       #set text(size: 0.9em, style: "italic")
       Rationale: any number of libraries must be able to exchange data, and no particular package must be needed to do so.
     ],
 
     // Row 2
-    [*Dtypes*], [
+    [*Dtypes*],
+    [
       Support for all dtypes in this API standard (see Data Types).
     ],
 
     // Row 3
-    [*Device Support*], [
+    [*Device Support*],
+    [
       Device support. It must be possible to determine on what device the array that is to be converted lives.
-      
+
       #set text(size: 0.9em, style: "italic")
       Rationale: there are CPU-only, GPU-only, and multi-device array types; it’s best to support these with a single protocol (with separate per-device protocols it’s hard to figure out unambiguous rules for which protocol gets used, and the situation will get more complex over time as TPU’s and other accelerators become more widely available).
     ],
 
     // Row 4
-    [*Zero-copy*], [
+    [*Zero-copy*],
+    [
       Zero-copy semantics where possible, making a copy only if needed (e.g. when data is not contiguous in memory).
-      
+
       #set text(size: 0.9em, style: "italic")
       Rationale: performance.
     ],
 
     // Row 5
-    [*Interfaces*], [
+    [*Interfaces*],
+    [
       A Python-side and a C-side interface, the latter with a stable C ABI.
-      
+
       #set text(size: 0.9em, style: "italic")
       Rationale: all prominent existing array libraries are implemented in C/C++, and are released independently from each other. Hence a stable C ABI is required for packages to work well together.
     ],
-    
+
     table.hline(stroke: 1.5pt),
   ),
   caption: [Array API interchange protocol requirements and rationales.],
@@ -243,7 +298,7 @@ The specification itself is rather simple, especially as, compared to the Buffer
 
 // TODO: Make sure the field descriptions are more coherent
 
-As such, the interface defines only a single attribute that should be accessible on the array-like objects named `__cuda_array_interface__`.  It must return a regular Python dictionary with fields described in @cai_fields. 
+As such, the interface defines only a single attribute that should be accessible on the array-like objects named `__cuda_array_interface__`.  It must return a regular Python dictionary with fields described in @cai_fields.
 
 The consumer simply accesses the underlying buffer by the supplied pointer in the `data` field. Rest of the dictionary should provide all the necessary metadata such as element's `datatype`, `shape`, and others to allow the consumer to work with the data as it sees fit.
 
@@ -259,19 +314,31 @@ For example, CuPy holds the reference after construting the object with `asarray
     columns: (auto, auto, auto),
     align: (left, center, left),
     // fill: (_, row) => if row == 0 { luma(240) } else { none },
-    table.header(
-      [*Field*], [*Required*], [*Description*]
-    ),
+    table.header([*Field*], [*Required*], [*Description*]),
     [`shape`], [Yes], [A tuple of integers representing the size of each dimension.],
     [`typestr`], [Yes], [The type string. This shares the same definition as `typestr` in the NumPy array interface.],
-    [`data`], [Yes], [A 2-tuple where the first element is the device-accessible data pointer (as a Python integer) and the second is a boolean read-only flag.],
+    [`data`],
+    [Yes],
+    [A 2-tuple where the first element is the device-accessible data pointer (as a Python integer) and the second is a boolean read-only flag.],
+
     [`version`], [Yes], [An integer indicating the version of the interface being exported (the current version is 3).],
-    [`strides`], [No], [A tuple of integers representing the number of bytes to skip to access the next element at each dimension. If `None` or omitted, the array is assumed to be in C-contiguous layout.],
-    [`descr`], [No], [Used to describe more complicated types, following the same specification as in the NumPy array interface.],
-    [`mask`], [No], [`None` or an object exposing the `__cuda_array_interface__` that acts as a mask, indicating which elements of the array are valid.],
-    [`stream`], [No], [`None` or an integer representing a stream upon which synchronization must take place at the point of consumption.]
+    [`strides`],
+    [No],
+    [A tuple of integers representing the number of bytes to skip to access the next element at each dimension. If `None` or omitted, the array is assumed to be in C-contiguous layout.],
+
+    [`descr`],
+    [No],
+    [Used to describe more complicated types, following the same specification as in the NumPy array interface.],
+
+    [`mask`],
+    [No],
+    [`None` or an object exposing the `__cuda_array_interface__` that acts as a mask, indicating which elements of the array are valid.],
+
+    [`stream`],
+    [No],
+    [`None` or an integer representing a stream upon which synchronization must take place at the point of consumption.],
   ),
-  caption: [A summary of the dictionary fields defined in the Python interface specification of `__cuda_array_interface__`.]
+  caption: [A summary of the dictionary fields defined in the Python interface specification of `__cuda_array_interface__`.],
 )<cai_fields>
 
 == DLPack
@@ -291,7 +358,7 @@ To resolve the ownership and lifetime ambiguities present in protocols like the 
 // https://dmlc.github.io/dlpack/latest/_images/DLPack_diagram.png
 #figure(
   image("assets/DLPack_diagram.png", width: 85%),
-  caption: [Visual representation of the DLPack data structures, illustrating the relationship between the tensor metadata and the managed memory context.]
+  caption: [Visual representation of the DLPack data structures, illustrating the relationship between the tensor metadata and the managed memory context.],
 ) <dlpack_architecture_diagram>
 
 // https://dmlc.github.io/dlpack/latest/python_spec.html
@@ -302,22 +369,25 @@ The `__dlpack_device__(self)` method returns a two-element tuple containing the 
 The `__dlpack__(self, *, stream=None)` method handles the actual data exchange. When called, the producer allocates a DLManagedTensor C structure, populates it with the array's data and metadata, and wraps it in a standard Python PyCapsule object named "dltensor". This capsule safely transports the C-level struct across the Python boundary. The consumer then unpacks the capsule, accesses the raw data, and assumes responsibility for calling the provided deleter when the capsule is consumed or destroyed. Furthermore, the optional stream argument allows frameworks to synchronize asynchronous hardware operations (like CUDA streams) during the handoff, ensuring data integrity during the exchange.
 
 #figure(
-table(
-columns: (auto, auto),
-align: (left, left),
-// fill: (_, row) => if row == 0 { luma(240) } else { none },
-table.header(
-[Field], [Description]
-),
-[data], [An opaque pointer to the raw memory containing the tensor elements.],
-[device], [A DLDevice structure detailing the device type (e.g., CPU, CUDA, OpenCL) and the specific device index.],
-[ndim], [An integer indicating the number of dimensions in the tensor.],
-[dtype], [A DLDataType structure defining the type code (e.g., integer, float, bfloat), the number of bits, and the number of lanes (for vector types).],
-[shape], [A pointer to an array of integers representing the size of the tensor in each of its ndim dimensions.],
-[strides], [A pointer to an array of integers indicating the number of elements to skip in memory to reach the next element along each dimension. Can be NULL if the tensor is compact and contiguous.],
-[byte_offset], [An integer specifying the byte offset from the data pointer to the actual beginning of the tensor data.]
-),
-caption: [A summary of the fields defined within the DLTensor C structure.]
+  table(
+    columns: (auto, auto),
+    align: (left, left),
+    // fill: (_, row) => if row == 0 { luma(240) } else { none },
+    table.header([Field], [Description]),
+    [data], [An opaque pointer to the raw memory containing the tensor elements.],
+    [device], [A DLDevice structure detailing the device type (e.g., CPU, CUDA, OpenCL) and the specific device index.],
+    [ndim], [An integer indicating the number of dimensions in the tensor.],
+    [dtype],
+    [A DLDataType structure defining the type code (e.g., integer, float, bfloat), the number of bits, and the number of lanes (for vector types).],
+
+    [shape], [A pointer to an array of integers representing the size of the tensor in each of its ndim dimensions.],
+    [strides],
+    [A pointer to an array of integers indicating the number of elements to skip in memory to reach the next element along each dimension. Can be NULL if the tensor is compact and contiguous.],
+
+    [byte_offset],
+    [An integer specifying the byte offset from the data pointer to the actual beginning of the tensor data.],
+  ),
+  caption: [A summary of the fields defined within the DLTensor C structure.],
 )<dlpack_fields>
 
 
@@ -360,7 +430,7 @@ A notable detail concerns the Buffer protocol specifically. Unlike DLPack and th
 
 With the protocol implementations in place, PyTNL's array containers become consumable by any library that understands the corresponding interchange mechanism. This section describes the concrete capabilities that these protocols enable, organized around four objectives:
 
-+ *Zero-copy interoperability.* Although PyTNL aims to be a self-contained library, allowing the no-copy views in other libraries gives users the freedom to use the best tool for the job. And thanks to sharing the buffer, the modifications are made immediately accesible even in the originating PyTNL array. 
++ *Zero-copy interoperability.* Although PyTNL aims to be a self-contained library, allowing the no-copy views in other libraries gives users the freedom to use the best tool for the job. And thanks to sharing the buffer, the modifications are made immediately accesible even in the originating PyTNL array.
 + *Direct execution of JIT-compiled functions on PyTNL containers.* Through the Buffer protocol (CPU) and DLPack (CUDA), Numba-compiled functions and kernels can operate directly on PyTNL arrays without requiring an explicit data copy or conversion. This includes scalar JIT functions, vectorized operations, and multi-dimensional CUDA kernels.
 + *Applicability to non-array data structures.* The protocols are defined for dense, contiguous memory regions and therefore map naturally onto `NDArray`. However, sparse formats such as CSR matrices store their data in multiple separate arrays (values, column indices, row pointers), each of which can be individually exported. This section explores what operations this partial exposure enables and where its limitations lie.
 + *Performance evaluation.* The element-wise operations executed through the protocol-based direct access are benchmarked and compared against the results from @function_calling_from_cpp_benchmark, where Python functions were passed across the language boundary into the #cpp runtime.
@@ -407,23 +477,23 @@ I demonstrate the zero-copy interoperability on a very simple use case. After Py
   ```,
 )
 
-This example is, of course, very simple, but as the changes do not propagate by some kind of synchronization mechanism but rather simply through shared memory, the same principle applies to any kind of modification as long as the operation doesn't require a copy or reallocation due to shape changes. 
+This example is, of course, very simple, but as the changes do not propagate by some kind of synchronization mechanism but rather simply through shared memory, the same principle applies to any kind of modification as long as the operation doesn't require a copy or reallocation due to shape changes.
 
-This allows users to leverage the strengths of different libraries on the same data with little to no performance penalty. 
+This allows users to leverage the strengths of different libraries on the same data with little to no performance penalty.
 
 === JIT-compiled operations on arrays
 
 // TODO: Rewrite when the first benchmark results are actually written
-As the benchmarks in @function_calling_from_cpp_benchmark suggests, a big performance bottleneck in executing element-wise operations are the constant crossings of the language boundary, the type conversions, boxing and unboxing of Python objects and rest of the overhead. Now just the inversion of approach and calling the user functions from Python loops instead of #cpp is not a sufficient solution. Function like the one shown @slow_python_map_function still crosses the boundary two times for each element, once when the element is read and once when it is written back. Each time, the `double` value is converted to a Python float object and back. Furthemore, the Python for loop execution itself is simply slower then the equivalent C++ loop.
+As the benchmarks in @function_calling_from_cpp_benchmark suggests, a big performance bottleneck in executing element-wise operations are the constant crossings of the language boundary, the type conversions, boxing and unboxing of Python objects and rest of the overhead. Now just the inversion of approach and calling the user functions from Python loops instead of #cpp is not a sufficient solution. Function like the one shown @slow_python_map_function still crosses the boundary two times for each element, once when the element is read and once when it is written back. Each time, the `double` value is converted to a Python float object and back. Furthermore, the Python for loop execution itself is simply slower then the equivalent C++ loop.
 
 #code1(
   [Element wise mapping using a plain Python loop. Generally low performance both for the Python loop but mainly for the many element accesses that require crossing the language boundary.],
   <slow_python_map_function>,
   ```python
-def python_map(data, func) -> None:
-    """Element-wise mapping using a plain Python loop."""
-    for i in range(data.size):
-        data[i] = func(data[i])
+  def python_map(data, func) -> None:
+      """Element-wise mapping using a plain Python loop."""
+      for i in range(data.size):
+          data[i] = func(data[i])
   ```,
 )
 
@@ -443,21 +513,21 @@ The `@jit(nopython=True)` decorator (equivalently `@njit`) compiles a Python fun
   [A Numba `@jit`-compiled function that mutates a PyTNL host array in place. The function receives the entire buffer and iterates over it internally.],
   <numba_jit_example>,
   ```python
-@jit(nopython=True)
-def fill_with_index_njit(data):
-    """Fill a 1D array with values matching their indices."""
-    for i in range(len(data)):
-        data[i] = i
+  @jit(nopython=True)
+  def fill_with_index_njit(data):
+      """Fill a 1D array with values matching their indices."""
+      for i in range(len(data)):
+          data[i] = i
 
-# Usage with PyTNL array
-host_arr = Array[float, devices.Host](N, 0.0)
-fill_with_index_njit(host_arr)  # runs at native speed via Buffer protocol
+  # Usage with PyTNL array
+  host_arr = Array[float, devices.Host](N, 0.0)
+  fill_with_index_njit(host_arr)  # runs at native speed via Buffer protocol
   ```,
 )
 
-Note that the function accepts the whole array and contains its own loop. The user has full control over the iteration, indexing, and any conditional logic. This is particularly powerful for operations that do not map cleanly onto existing library primitives --- custom reductions, conditional updates, or any loop-heavy algorithm that would otherwise require dropping into #cpp. 
+Note that the function accepts the whole array and contains its own loop. The user has full control over the iteration, indexing, and any conditional logic. This is particularly powerful for operations that do not map cleanly onto existing library primitives --- custom reductions, conditional updates, or any loop-heavy algorithm that would otherwise require dropping into #cpp.
 
-The disadvantage is that the user not only can, but must, write the loop themselves. That looses some of the convinience simple element-wise operations and the original `parallelFor` TNL function. 
+The disadvantage is that the user not only can, but must, write the loop themselves. That loses some of the convenience of simple element-wise operations and the original `parallelFor` TNL function.
 
 Still, the key insight is that this allows users to write standard Python code and as will be seen in @benchmark_user_functions_protocol_table, this happens without the usual performance costs associated with Python.
 
@@ -469,13 +539,13 @@ The `@vectorize` decorator is a notable exception to the whole-buffer pattern. I
   [A Numba `@vectorize`-compiled ufunc applied to a PyTNL host array. Unlike `@jit`, the user defines only scalar logic and Numba drives the loop.],
   <numba_vectorize_example>,
   ```python
-@vectorize(["float64(float64, float64)"], nopython=True)
-def vectorized_scale(x, scale):
-    """Element-wise scale as a Numba vectorized ufunc."""
-    return x * scale
+  @vectorize(["float64(float64, float64)"], nopython=True)
+  def vectorized_scale(x, scale):
+      """Element-wise scale as a Numba vectorized ufunc."""
+      return x * scale
 
-host_arr = Array[float, devices.Host](N, 1.0)
-result = vectorized_scale(host_arr, 2.0)  # returns a NEW NumPy array
+  host_arr = Array[float, devices.Host](N, 1.0)
+  result = vectorized_scale(host_arr, 2.0)  # returns a NEW NumPy array
   ```,
 )
 
@@ -485,10 +555,10 @@ While concise, `@vectorize` has an important caveat: by default it allocates and
   [Workaround for in-place `@vectorize` output: creating a zero-copy NumPy view and passing it as the `out` argument redirects the result back into PyTNL's buffer.],
   <numba_vectorize_inplace_workaround>,
   ```python
-host_arr = Array[float, devices.Host](N, 1.0)
-np_view = np.asarray(host_arr)                   # zero-copy NumPy view
-vectorized_scale(host_arr, 2.0, out=np_view)     # writes into PyTNL's memory
-# host_arr now contains the scaled values
+  host_arr = Array[float, devices.Host](N, 1.0)
+  np_view = np.asarray(host_arr)                   # zero-copy NumPy view
+  vectorized_scale(host_arr, 2.0, out=np_view)     # writes into PyTNL's memory
+  # host_arr now contains the scaled values
   ```,
 )
 
@@ -504,17 +574,17 @@ The kernel is launched over a _grid_ of threads organized into _blocks_. Each th
   [A 3D CUDA kernel written with Numba's `@cuda.jit`, launched directly on a PyTNL CUDA `NDArray`. The `blocks` and `threads` parameters define the execution grid; the `if` guard prevents out-of-bounds access.],
   <numba_cuda_jit_3d_example>,
   ```python
-@cuda.jit
-def numba_scale_kernel_3d(data, scale, nx, ny, nz):
-    """Scale a 3D NDArray element-wise on the GPU."""
-    i, j, k = cuda.grid(3)
-    if i < nx and j < ny and k < nz:
-        data[i, j, k] = data[i, j, k] * scale
+  @cuda.jit
+  def numba_scale_kernel_3d(data, scale, nx, ny, nz):
+      """Scale a 3D NDArray element-wise on the GPU."""
+      i, j, k = cuda.grid(3)
+      if i < nx and j < ny and k < nz:
+          data[i, j, k] = data[i, j, k] * scale
 
-cuda_arr = NDArray[float, devices.Cuda]((nx, ny, nz), 1.0)
-threads = (8, 8, 8)
-blocks = ((nx + 7) // 8, (ny + 7) // 8, (nz + 7) // 8)
-numba_scale_kernel_3d[blocks, threads](cuda_arr, 2.0, nx, ny, nz)
+  cuda_arr = NDArray[float, devices.Cuda]((nx, ny, nz), 1.0)
+  threads = (8, 8, 8)
+  blocks = ((nx + 7) // 8, (ny + 7) // 8, (nz + 7) // 8)
+  numba_scale_kernel_3d[blocks, threads](cuda_arr, 2.0, nx, ny, nz)
   ```,
 )
 
@@ -526,19 +596,19 @@ The following example demonstrates a non-trivial access pattern where each threa
   [A 1D stencil kernel demonstrating neighbour access patterns on a PyTNL CUDA array. The bounds check `0 < i < N - 1` excludes boundary elements that lack a full neighbourhood.],
   <numba_stencil_example>,
   ```python
-@cuda.jit
-def numba_stencil_kernel(input_data, output_data, N):
-    """3-point stencil operation (like finite differences)."""
-    i = cuda.grid(1)
-    if 0 < i < N - 1:
-        output_data[i] = (input_data[i-1] + input_data[i] + input_data[i+1]) / 3.0
+  @cuda.jit
+  def numba_stencil_kernel(input_data, output_data, N):
+      """3-point stencil operation (like finite differences)."""
+      i = cuda.grid(1)
+      if 0 < i < N - 1:
+          output_data[i] = (input_data[i-1] + input_data[i] + input_data[i+1]) / 3.0
 
-input_arr = Array[float, devices.Cuda](N, 0.0)
-output_arr = Array[float, devices.Cuda](N, 0.0)
-# ... initialize input_arr ...
-threads = 256
-blocks = (N + threads - 1) // threads
-numba_stencil_kernel[blocks, threads](input_arr, output_arr, N)
+  input_arr = Array[float, devices.Cuda](N, 0.0)
+  output_arr = Array[float, devices.Cuda](N, 0.0)
+  # ... initialize input_arr ...
+  threads = 256
+  blocks = (N + threads - 1) // threads
+  numba_stencil_kernel[blocks, threads](input_arr, output_arr, N)
   ```,
 )
 
@@ -576,26 +646,26 @@ As the CSR matrix still uses dense arrays under the hood, it can still benefit f
   [Scaling the `VALUES` array of a CSR matrix in-place via a `@cuda.jit` kernel. Only the dense backing array is exported; the structural arrays (`COLUMN_INDICES`, `ROW_POINTERS`) remain untouched.],
   <csr_scale_example>,
   ```python
-cuda_values  = Array[float, devices.Cuda](4, 0.0)
-cuda_col_idx = Array[int,   devices.Cuda](4, 0)
-cuda_row_ptr = Array[int,   devices.Cuda](5, 0)
-# ... fill with [10, 20, 30, 40], [0, 1, 2, 1], [0, 1, 3, 3, 4] ...
+  cuda_values  = Array[float, devices.Cuda](4, 0.0)
+  cuda_col_idx = Array[int,   devices.Cuda](4, 0)
+  cuda_row_ptr = Array[int,   devices.Cuda](5, 0)
+  # ... fill with [10, 20, 30, 40], [0, 1, 2, 1], [0, 1, 3, 3, 4] ...
 
-# Scale all non-zero values in-place via a CUDA kernel on VALUES directly
-@cuda.jit
-def scale_values(values, factor, n):
-    i = cuda.grid(1)
-    if i < n:
-        values[i] *= factor
+  # Scale all non-zero values in-place via a CUDA kernel on VALUES directly
+  @cuda.jit
+  def scale_values(values, factor, n):
+      i = cuda.grid(1)
+      if i < n:
+          values[i] *= factor
 
-n = 4
-threads = 32
-blocks = (n + threads - 1) // threads
-scale_values[blocks, threads](cuda_values, 2.0, n)
+  n = 4
+  threads = 32
+  blocks = (n + threads - 1) // threads
+  scale_values[blocks, threads](cuda_values, 2.0, n)
 
-# Zero-copy CuPy view confirms the modification
-cp_values = cp.asarray(cuda_values)
-assert cp_values.tolist() == [20.0, 40.0, 60.0, 80.0]  # all values doubled
+  # Zero-copy CuPy view confirms the modification
+  cp_values = cp.asarray(cuda_values)
+  assert cp_values.tolist() == [20.0, 40.0, 60.0, 80.0]  # all values doubled
   ```,
 )
 
@@ -614,19 +684,17 @@ The benchmark measures the same operation --- scaling every element of a $2^21$-
     columns: (1fr, auto, auto, auto, auto),
     align: (left, left, center, right, right),
     inset: (x: 8pt, y: 10pt),
-    table.header(
-      [*Method*], [*Data Structure*], [*Device*], [*Avg \ (ms/iter)*], [*vs baseline*],
-    ),
-    [cuda.jit],             [PyTNL NDArray],  [GPU], [0.093],   [9.1× faster],
-    [cuda.jit],             [CuPy array],     [GPU], [0.094],   [8.9× faster],
-    [Numba jit],            [PyTNL NDArray],  [CPU], [0.795],   [1.1× faster],
-    [Numba jit],            [NumPy array],    [CPU], [0.810],   [1.0× faster],
-    [NumPy ufunc],          [NumPy array],    [CPU], [0.843],   [(baseline)],
-    [Numba vectorize],      [NumPy array],    [CPU], [1.195],   [1.4× slower],
-    [Numba vectorize],      [PyTNL NDArray],  [CPU], [1.310],   [1.6× slower],
-    [python loop],          [Python list],    [CPU], [70.179],  [83.3× slower],
-    [python loop],          [NumPy array],    [CPU], [589.413], [699.3× slower],
-    [PyTNL forAll],         [PyTNL NDArray],  [CPU], [744.411], [883.2× slower],
+    table.header([*Method*], [*Data Structure*], [*Device*], [*Avg \ (ms/iter)*], [*vs baseline*]),
+    [cuda.jit], [PyTNL NDArray], [GPU], [0.093], [9.1× faster],
+    [cuda.jit], [CuPy array], [GPU], [0.094], [8.9× faster],
+    [Numba jit], [PyTNL NDArray], [CPU], [0.795], [1.1× faster],
+    [Numba jit], [NumPy array], [CPU], [0.810], [1.0× faster],
+    [NumPy ufunc], [NumPy array], [CPU], [0.843], [(baseline)],
+    [Numba vectorize], [NumPy array], [CPU], [1.195], [1.4× slower],
+    [Numba vectorize], [PyTNL NDArray], [CPU], [1.310], [1.6× slower],
+    [python loop], [Python list], [CPU], [70.179], [83.3× slower],
+    [python loop], [NumPy array], [CPU], [589.413], [699.3× slower],
+    [PyTNL forAll], [PyTNL NDArray], [CPU], [744.411], [883.2× slower],
     table.hline(stroke: 1.5pt),
   ),
   caption: [
@@ -638,7 +706,7 @@ The benchmark measures the same operation --- scaling every element of a $2^21$-
 
 The most important observation is that PyTNL arrays accessed through the protocols perform on par with their native counterparts. Numba `@jit` on a PyTNL host array (0.795 ms) is virtually identical to the same function on a NumPy array (0.810 ms), and both match the NumPy ufunc baseline (0.843 ms). Similarly, `@cuda.jit` on a PyTNL CUDA `NDArray` (0.093 ms) is indistinguishable from the same kernel on a CuPy array (0.094 ms). This confirms that the protocol-based export introduces negligible overhead --- once the buffer reference is handed off, the JIT-compiled code operates on raw memory at the same speed regardless of the originating library.
 
-On the GPU side, the `cuda.jit` results are roughly 9× faster than the CPU baseline, which is expected given the massively parallel nature of the operation and the hardware used. This is further supported by the fact that increasing $N$ does not significantly change the per-iteration time on the GPU, while it does rise lineary on the CPU, confirming the parallel nature of the execution. 
+On the GPU side, the `cuda.jit` results are roughly 9× faster than the CPU baseline, which is expected given the massively parallel nature of the operation and the hardware used. This is further supported by the fact that increasing $N$ does not significantly change the per-iteration time on the GPU, while it does rise linearly on the CPU, confirming the parallel nature of the execution.
 
 The `@vectorize` results (1.2--1.3 ms) are somewhat slower than the `@jit` approach, which is consistent with the additional overhead of the ufunc dispatch machinery. Note that in the benchmark, the workaround mentioned in @numba_vectorize_usage was used to achieve in-place mutation. So the slowdown is not caused by extra allocation. Still, the performance different is very slight and seems to be a reasonable tradeoff for the convenience of writing scalar logic without explicit loops.
 
@@ -653,7 +721,298 @@ These results validate the central thesis of this chapter: exposing PyTNL's memo
 
 == PDLP Solver
 
-== SPH???????
+== TNL-SPH
+
+// https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5671636
+
+// TODO: Consider adding citations for the original SPH papers (Lucy 1977, Gingold & Monaghan 1977)
+// R. A. Gingold and J. J. Monaghan. Smoothed particle hydrodynamics: theory and application to non-spherical stars. Monthly Notices of the Royal Astronomical Society, 181:375–389, 1977.
+Smoothed Particle Hydrodynamics (SPH) is a fully Lagrangian mesh-free method originally developed for astrophysical simulations, which has since been widely adopted in engineering, geophysics, and computer graphics for its ability to handle complex geometries, discontinuities, and free surfaces.
+
+TNL-SPH @halada2025tnlsph is an open-source SPH implementation developed as a submodule of the Template Numerical Library. TNL-SPH focuses on fluid flow modeling, and hydrodynamic problems in general, while providing a relatively high level, user-friendly interface, just like the rest of TNL. The library is designed with easy access to and extension of the main time loop in mind, allowing users to insert custom functions between any two operations in the loop.
+
+The existing examples already ship with Python scripts that prepare the simulation configuration, run the simulation, and post-process the results. That makes TNL-SPH an ideal demonstration case for this work. If the whole user flow could be moved to Python --- with no manual compilation step and no subprocess launching --- that would be a significant improvement in the user experience and accessibility of the library.
+
+=== PyTNL goals - workflow
+
+==== Current workflow <sph_current_workflow>
+
+The native TNL-SPH workflow, as described in the paper @halada2025tnlsph and its accompanying examples, involves three configuration files per simulation case. A compile-time configuration header `config.h` selects the device, particle representation, SPH model, and all of its associated template parameters --- kernel function, diffusive term, viscous term, equation of state, boundary condition type, time stepping strategy, and integration scheme. A runtime configuration file `config.ini` specifies physical and numerical parameters such as density, speed of sound, viscosity, CFL number, and paths to initial particle distributions. Finally, `case.h` contains the #cpp `main()` function that creates the solver instance and defines the simulation time loop.
+
+The time loop in `case.h` is structured as a sequence of individual phase calls, each corresponding to a distinct step of the SPH algorithm. This is deliberate: it allows users to insert custom logic between any two phases of the simulation.
+
+#code1(
+  [The native #cpp time loop from a TNL-SPH example (adapted from the paper's Appendix~A @halada2025tnlsph). Each simulation phase is a separate method call, and the loop is explicitly designed for user extensibility.],
+  <sph_native_case_h>,
+  ```cpp
+  #include "template/config.h"
+
+  int main( int argc, char* argv[] )
+  {
+      Simulation sph;
+      sph.init( argc, argv );
+      sph.writeProlog();
+
+      while( sph.timeStepping.runTheSimulation() )
+      {
+          sph.performNeighborSearch();
+          sph.interact();
+          sph.computeTimeStep();
+          sph.integrateVerletStep( SPHDefs::BCType::integrateInTime() );
+          sph.makeSnapshot();
+          sph.measure();
+          sph.updateTime();
+      }
+
+      sph.writeEpilog();
+  }
+  ```,
+)
+
+While the loop itself is simple and straightforward, setting up the input data and configuration can still be a daunting task for new users. The compile-time configuration requires familiarity with C++ templates and the specific types defined in the TNL-SPH codebase. The runtime configuration involves editing an INI file with the correct parameter names and values as well as preparing the initial particle distribution in the Visualization Toolkit (VTK) format.
+
+To help with this, the library ships with several Python scripts. The `init.py` generates the runtime configuration and the VTK files. It also performs text substitution in the `config_template.h` to generate the final `config.h`, filling in the three substituted parameters --- `DiffusiveTerm`, `ViscousTerm`, and `BCType` --- while the remaining template parameters (kernel function, EOS, time stepping, and integration scheme) are hardcoded in the template.
+
+After that however, the user must still manually compile the C++ code via `cmake --build build`, since the template parameters are baked into the generated header. The `run.py` script then serves a dual role: it conditionally invokes `init.py` as a subprocess --- either when the `--init` flag is passed explicitly, or automatically when the `sources/` directory does not yet exist --- and subsequently launches the compiled binary as a subprocess with the generated configuration. Finally, `postpro.py` reads the plain-text sensor measurement files (`sensorsPressure.dat`, `sensorsWaterLevel.dat`) and generates matplotlib plots from them. It also calls `writeParaviewSeriesFile.generate_series()` to produce a `.pvd` index file over the VTK snapshots, which allows ParaView to load the full simulation sequence.
+
+==== Simplified workflow goals
+
+The PyTNL expansion aims to collapse this multi-step process into a single Python script. Instead of separate initialisation, compilation, and execution phases --- each requiring different tools and knowledge --- the user should be able to specify the simulation configuration through Python methods and functions and drive the simulation time loop directly from Python.
+
+The key goals of PyTNL-SPH are:
+
++ No manual #cpp compilation --- the simulation is already compiled along with the library, or as the @sph_code_generation describes, the JIT plugin system compiles the variant on the spot and caches it by default.
++ No subprocess launching --- the simulation runs directly within the Python process.
++ No need to edit #cpp configuration headers --- all template parameters are selected through Python arguments.
++ User-defined functions can be written in Python --- including the possibility of JIT-compiled Numba functions operating on the solver's arrays through the data interchange protocols described in the preceding chapter --- rather than requiring #cpp code that must be compiled with the project.
+
+// TODO: Once the API is finalised, add a side-by-side comparison (table or two columns) showing the traditional three-step workflow vs. the single-script PyTNL approach.
+
+=== Template instantiation <sph_template_instantiation>
+
+The compile-time template configuration described in @sph_current_workflow creates a challenge for Python bindings. In native #cpp, the compiler instantiates templates on demand --- the user edits `config.h`, and only the requested combination of types is compiled. Nanobind, however, requires every template instantiation it wraps to be explicitly enumerated and compiled in advance. There is no mechanism to defer instantiation to runtime; the set of supported types is fixed when the extension module is built.
+
+To illustrate the scale of the problem, @sph_config_h shows how a single variant is assembled in `config.h`, and @sph_template_axes lists all available configuration axes:
+
+#code1(
+  [Compile-time configuration of a TNL-SPH simulation variant in `config.h` (adapted from the paper's Appendix~A @halada2025tnlsph). Each `using` declaration selects a specific implementation for one template axis; the final `Model` and `Simulation` types compose all choices into a single #cpp type.],
+  <sph_config_h>,
+  ```cpp
+  class SPHParams {
+      using KernelFunction =
+          TNL::SPH::WendlandKernel<SPHConfig<Device>>;
+      using DiffusiveTerm =
+          TNL::SPH::MolteniDiffusiveTerm<SPHConfig<Device>>;
+      using ViscousTerm =
+          TNL::SPH::ArtificialViscosity<SPHConfig<Device>>;
+      using EOS =
+          TNL::SPH::TaitWeaklyCompressibleEOS<SPHConfig<Device>>;
+      using BCType = TNL::SPH::DBC;
+      using TimeStepping =
+          TNL::SPH::ConstantTimeStep<SPHConfig<Device>>;
+      using IntegrationScheme =
+          TNL::SPH::VerletScheme<SPHConfig<Device>>;
+  };
+  using Model =
+      TNL::SPH::WCSPH_DBC<ParticlesSys, SPHParams<Device>>;
+  using Simulation =
+      TNL::SPH::SPHMultiset_CFD<Model>;
+  ```,
+)
+
+#figure(
+  table(
+    columns: (auto, auto, auto),
+    align: (left, left, left),
+    inset: (x: 8pt, y: 10pt),
+    table.header([*Parameter*], [*Options*], [*Count*]),
+    [Boundary condition], [DBC, MDBC], [2],
+    [Diffusive term], [None, Molteni, Fourtakas], [3],
+    [Viscous term], [Artificial, Physical, Combined], [3],
+    [Kernel function], [Wendland], [1],
+    [Time stepping], [Constant, Variable], [2],
+    [Device], [Host (CPU), CUDA (GPU)], [2],
+    [Precision], [float, double], [2],
+    [Dimension], [2D, 3D], [2],
+  ),
+  caption: [Compile-time configuration axes of the SPH solver and their respective options.],
+) <sph_template_axes>
+
+The total number of distinct combinations is:
+$ 2 times 3 times 3 times 1 times 2 times 2 times 2 times 2 = 288 $
+
+Pre-compiling all 288 variants into a single extension module is impractical. CUDA compilation through `nvcc` is slow --- each variant requires processing the entire heavily-templated SPH header hierarchy, and the total build time would be very long. The resulting binary would also be unnecessarily bloated, and any change to the set of options (adding a new kernel function, for example) would multiply the variant count further.
+
+That leaves two choices:
+
++ Analyze the domain and identify a smaller subset of "common" variants to compile in advance. Users needing other configurations would either have to modify the source code or simply revert to the traditional #cpp workflow.
++ Generate and compile the requested variant on demand at runtime. Potentially caching the results to avoid recompilations.
+
+Given this work's goal of improving accessibility and user experience, the second option was chosen. The following sections describe the runtime code generation and compilation system implemented for TNL-SPH.
+
+=== Code generation <sph_code_generation>
+
+// TODO: Check there are experiments describing this...:d
+Experiments described in @nvrtc_introduction demonstrate that runtime compilers like NVRTC fail to compile the heavily-templated TNL code base, whose design relies on device-independent user code that runs on both CPU and GPU. The code generation therefore relies on the standard toolchain.
+
+CMake is used to configure and drive the compilation, and `nvcc` is used to compile the CUDA variants. This requires the user to have the full toolchain installed. That is, however, already expected of users who build the original TNL-SPH from source, so it does not represent an additional barrier. No new dependencies are introduced.
+
+==== Variant specification
+
+The eight compile-time axes are modelled in Python as `Enum` classes whose `.value` strings correspond to the exact #cpp type names used in substitution. A frozen dataclass `VariantSpec` bundles all axes into a single hashable, immutable descriptor. Its `variant_id()` method produces a filesystem-safe string (e.g., `wcsph_dbc_2d_cuda_float_dbc_molteni_artificial`) that serves as both the cache key and the generated CMake project name.
+
+==== Source generation
+
+The code generator uses simple `{{TOKEN}}` placeholder substitution --- no external templating engine such as Jinja2 is required, keeping the dependency footprint minimal. After substitution, a regex check verifies that no unresolved `{{UPPER_CASE}}` placeholders remain, catching typos and missing parameters early.
+
+For each variant, two files are produced:
+
++ *`plugin.cpp`* --- a self-contained #cpp translation unit (~210 lines) that defines the fully-resolved type aliases for the particle system configuration, SPH parameters, and the simulation model --- essentially the logic previously in the compile-time `config.h`. It also exports three `extern "C"` entry points: `sph_create()`, `sph_destroy()`, and `sph_variant_id()`. The `extern "C"` linkage prevents #cpp name mangling and establishes a stable C ABI across separately compiled modules. After loading the compiled plugin, the host finds these functions via `dlsym` and uses them to create and manage the simulation instance.
+
++ *`CMakeLists.txt`* --- a standalone CMake project that builds the plugin as a shared library (`plugin.so`). It reuses the exact compilers, C++ standard, and include paths from the original PyTNL-SPH build through a `build_info` module, ensuring ABI compatibility between the host extension and the dynamically loaded plugins.
+
+#code1(
+  [Part of the template used to generate `plugin.cpp`. EOS and integration scheme are fixed in the template; all other physics choices correspond directly to a VariantSpec field.],
+  <sph_plugincpp_template>,
+  ```cpp
+  // ── 1. Device ────────────────────────────────────────────────────────────────
+  {{DEVICE_INCLUDE}}
+  {{DEVICE_USING}}
+
+  // ── 2. Particle system configuration ─────────────────────────────────────────
+  class ParticleSystemConfig {
+      using RealType = {{PRECISION}};
+      static constexpr int spaceDimension = {{SPACE_DIMENSION}};
+      // ... index types, neighbour list type ...
+  };
+
+  // ── 3. SPH physics parameters ─────────────────────────────────────────────────
+  template<typename DeviceT>
+  class SPHParams {
+  public:
+      using KernelFunction    = TNL::SPH::KernelFunctions::{{KERNEL_TYPE}}<SPHConfig>;
+      using DiffusiveTerm     = TNL::SPH::DiffusiveTerms::{{DIFFUSIVE_TERM}}<SPHConfig>;
+      using ViscousTerm       = TNL::SPH::ViscousTerms::{{VISCOUS_TERM}}<SPHConfig>;
+      using EOS               = TNL::SPH::EquationsOfState::TaitWeaklyCompressibleEOS<SPHConfig>;
+      using BCType            = TNL::SPH::WCSPH_BCTypes::{{BC_TYPE}};
+      using TimeStepping      = TNL::SPH::{{TIME_STEPPING}}<SPHConfig>;
+      using IntegrationScheme = TNL::SPH::IntegrationSchemes::VerletScheme<SPHConfig>;
+  };
+
+  // ── 4. Top-level model alias ──────────────────────────────────────────────────
+  using VariantModel = TNL::SPH::WCSPH_DBC<ParticlesSys, SPHParams<Device>>;
+
+  // ── 5. C ABI entry points ─────────────────────────────────────────────────────
+  extern "C" {
+      pytnl_sph::ISimulation* sph_create()
+          { return new pytnl_sph::ConcreteSimulation<VariantModel>("{{VARIANT_ID}}"); }
+      void    sph_destroy(pytnl_sph::ISimulation* p) { delete p; }
+      const char* sph_variant_id() { return "{{VARIANT_ID}}"; }
+  }
+  ```,
+)
+
+==== Build and cache
+
+Compiled plugins are stored in a per-user cache directory (`~/.cache/pytnl_sph/` by default, configurable via an environment variable). Each variant occupies its own subdirectory containing the generated sources and the compiled shared library:
+
+#code1(
+  [Cache directory layout for a single compiled SPH variant. The `build/` subdirectory contains CMake artefacts and the final shared library.],
+  <sph_cache_layout>,
+  ```
+  ~/.cache/pytnl_sph/
+    wcsph_dbc_2d_cuda_float_dbc_molteni_artificial/
+      plugin.cpp
+      CMakeLists.txt
+      build/
+        plugin.so
+  ```,
+)
+
+When a variant is requested, the system first checks whether `plugin.so` already exists in the cache. On a cache hit, the plugin is loaded immediately with negligible overhead. On a cache miss, the system generates the sources, invokes CMake to configure and build the project, and stores the result. Compilation output is streamed to the user in real time so that build progress and any errors are immediately visible.
+
+==== Plugin loading and virtual dispatch
+
+The compiled `plugin.so` is loaded into the Python process via `dlopen` with `RTLD_NOW | RTLD_LOCAL`. The `RTLD_NOW` flag ensures all symbols are resolved at load time, surfacing linking errors immediately. The `RTLD_LOCAL` flag keeps the plugin's symbols private, allowing multiple variants to coexist in a single process without symbol conflicts.
+
+Communication between the host extension module and the plugin proceeds through a pure virtual #cpp interface `ISimulation`. This interface uses only simple types (`float`, `int`, `std::string`) --- no TNL types cross the ABI boundary. 
+
+The plugin's `sph_create()` function returns a pointer to a `ConcreteSimulation<Model>`, which implements `ISimulation` through composition: it holds the fully-templated `SPHMultiset_CFD<Model>` as a member and forwards each virtual method call to the corresponding method on it. 
+
+// TODO: briefly explain _why_ composition is preferred over inheritance here --- is it specifically the CUDA device-side vtable issue, or something else? Clarify for the reader.
+// OR: Do not include the paragrapth about composition at all...
+// Inheriting from both `ISimulation` and the large, non-polymorphic `SPHMultiset_CFD` would constitute problematic multiple inheritance — `SPHMultiset_CFD` has no virtual destructor and was not designed to be a base class — and the combination of virtual dispatch with CUDA device-side code creates further ABI hazards. Composition avoids both problems with no overhead.
+
+The `ISimulation` interface exposes the individual phases of the simulation time step as separate methods: `performNeighborSearch()`, `interact()`, `computeTimeStep()`, `integrateVerletStep()`, and others --- following the original TNL-SPH design. All compute methods release the Python GIL during execution, ensuring that the interpreter is not blocked during long-running GPU or multi-threaded CPU computations.
+
+==== User-facing API
+
+From the user's perspective, the entire compilation and loading pipeline is hidden behind a single factory function. The user specifies the desired configuration through Python keyword arguments, and the factory either loads a cached plugin or triggers a compilation:
+
+#code1(
+  [Simplified example of the new API. The factory function handles code generation, compilation, caching, and plugin loading.],
+  <sph_jit_usage_example>,
+  ```python
+  from pytnl_sph.jit import create_simulation, VariantSpec
+
+  spec = VariantSpec(
+        dimension=args.dimension,
+        bc_type=BCType[args.bc_type],
+        diffusive_term=DiffusiveTerm[args.diffusive_term],
+        viscous_term=ViscousTerm[args.viscous_term],
+        kernel=KernelType.WENDLAND,
+        time_stepping=TimeStepping.VARIABLE,
+        device=Device[args.device],
+    )
+
+  sph = create_simulation(spec=spec)
+
+  sph.init(str(config_path))
+  sph.writeProlog()
+  while sph.runTheSimulation():
+    sph.performNeighborSearch()
+    sph.interact()
+    sph.computeTimeStep()
+    sph.integrateVerletStep()  # BCType::integrateInTime() is baked in
+    sph.makeSnapshot()
+    sph.measure()
+    sph.updateTime()
+  sph.write_epilog()
+  ```,
+)
+
+@sph_jit_usage_example shows a simplified version of the final `run.py` script. The actual script still handles the runtime configuration generation and initial particle distribution setup, but all of that is done through Python functions rather than subprocess calls to separate scripts. The user interacts with a single Python script that handles everything from configuration to execution, without needing to touch any #cpp code or manually invoke the build system.
+
+// TODO: compare the traditional three-step workflow (init.py → cmake build → run binary) with this single-script approach in a concise table or paragraph? The "PyTNL goals - workflow" section should set this up; verify it does.
+
+==== Extending the time loop
+
+// TODO: if I have time to do a real tested example, I should include it
+
+While the loop is kept open and adjustable, the available operations are limited by the methods exposed by the `ISimulation` interface. This interface was designed only around the WCSPH-DBC model. More complex models may not fit the existing interface and will likely require additional methods to be added. 
+
+A second limitation concerns particle data access. The ISimulation ABI boundary intentionally passes only scalar values — simulation time, step index, and time-step size — to avoid TNL types crossing the .so boundary. As a consequence, there is no mechanism to read or write individual particle fields (density, velocity, pressure, distortion tensor) from the Python time loop. 
+
+Extending data access through ISimulation is non-trivial, because the interface works precisely by being decoupled from TNL types — it makes no assumptions about what the plugin contains, which is what keeps it general across all model variants. Returning TNL array types directly through a virtual method would reintroduce the model-specific type dependencies the boundary was designed to avoid.
+
+A solution that preserves this decoupling is to expose only raw buffer descriptors: a pointer, an element count, a scalar type tag, and a device flag — all plain C types, safe across the ABI boundary. The host pytnl_sph module would then wrap each pointer into a PyTNL ArrayView, a non-owning view type that holds only a pointer and size without taking ownership of the underlying memory. This would let the plugin remain the sole owner of particle data while giving the Python side a first-class PyTNL object supporting the same operations as a regular array. ArrayView already exists in TNL's C++ layer with a bind(pointer, size) method; the remaining work would be exposing it to Python through PyTNL's bindings.
+
+A more drastic alternative would be to lean more heavily into the code generation. Instead of the time loop being driven from Python, the user could provide a #cpp snippet that would be injected into the generated `plugin.cpp` and compiled together with the rest of the code. The Python side would then simply load and execute the prepared loop. In some ways, however, this would be a step back --- more an improvement to the existing scripts and tooling than an expansion of PyTNL. No actual binding of TNL-SPH code would be required. 
+
+// === Summary
+
+// The code generation approach successfully addresses the combinatorial explosion inherent in pre-compiling all template variants. Instead of building 288 possible instantiations ahead of time, only the specific variant requested by the user is compiled, cached, and dynamically loaded. The compilation is fully automated and transparent to the user, who interacts with a single Python factory function.
+
+
+
+// // TODO: add measured compilation times and compare with the traditional full-project rebuild to quantify the practical improvement
+
+// The plugin architecture also enables the Python-side time loop, which is a qualitative improvement over the traditional workflow. Users gain the ability to insert arbitrary Python logic --- including the JIT-compiled buffer operations demonstrated earlier --- between simulation phases, without touching any #cpp code. This bridges the gap between the performance of a fully compiled solver and the flexibility of a scripting environment.
+
+// // TODO: discuss whether user-defined functions (e.g., custom force terms) could be integrated into this pipeline --- either via the Numba/protocol approach from the previous chapter, or by extending the code generation to accept user-supplied C++ snippets. Evaluate trade-offs.
+// // TODO: mention any current limitations or known issues (e.g., first-compilation latency, dependency on matching compiler versions, no Windows support?)
+
+
 
 = Julia ?
 
@@ -661,7 +1020,7 @@ These results validate the central thesis of this chapter: exposing PyTNL's memo
 
 == C like performance
 
-== JIT 
+== JIT
 
 
 // = Theory
@@ -674,17 +1033,17 @@ These results validate the central thesis of this chapter: exposing PyTNL's memo
 
 // == PyTNL
 
-// === Capabilities, what I am going to handle 
+// === Capabilities, what I am going to handle
 
 // == Python Buffer Protocol
 
 // == Cuda array interface
 
-// == 
+// ==
 
 // = Lambda functions at the \ language barrier
 
-// PyTNL as a Python interface for TNL library provides bindings for the original #cpp code. 
+// PyTNL as a Python interface for TNL library provides bindings for the original #cpp code.
 
 // = Dynamic compiling of lambda functions
 
@@ -714,12 +1073,12 @@ These results validate the central thesis of this chapter: exposing PyTNL's memo
 
 // The goal is reasonably simple from the API perspective. PyTNL should allow users to write some kind of lambda functions and allow executing them upon PyTNL exposed data structures. Ideally we would expose already existing higher order functions from TNL.
 
-// The main challenge of binding a higher order function such as `ParallelFor` is the ability to pass a Python Lambda function into 
+// The main challenge of binding a higher order function such as `ParallelFor` is the ability to pass a Python Lambda function into
 
 // Binding a higher order function such as `ParallelFor` faces two big challenges:
 
 // + Passing a Python Lambda function into the #cpp codebase and executing it from there.
-// + Allowing the context capture. As above, we would be capturing Python objects and subsequently passing them once again into the #cpp runtime. 
+// + Allowing the context capture. As above, we would be capturing Python objects and subsequently passing them once again into the #cpp runtime.
 
 
 
@@ -728,7 +1087,7 @@ These results validate the central thesis of this chapter: exposing PyTNL's memo
 
 // === Numba
 
-// To battle the performance issues of Python code, I tried to explore JIT compilation options. If we could precompile the python lambdas and separate it from the interpreter, we could achieve significant speed increase. 
+// To battle the performance issues of Python code, I tried to explore JIT compilation options. If we could precompile the python lambdas and separate it from the interpreter, we could achieve significant speed increase.
 // // TODO some source showing JIT in Numba actually speeds something up.
 
 // However, even JIT Numba precompiled functions are still passed through the bindings as a Python object and is still pretty slow.
@@ -741,4 +1100,3 @@ These results validate the central thesis of this chapter: exposing PyTNL's memo
 // // TODO: What about nb::callable???
 
 // === Cupy, Cuda CORE - NRVTC
-
