@@ -9,11 +9,10 @@
 ]
 
 #let declaration = [
-  TODO
-  // I hereby declare that the presented thesis is my own work and that I have cited all sources of information in accordance with the Guideline for adhering to ethical principles when elaborating an academic final thesis. I declare that I have used AI tools during the preparation and writing of my thesis. I have verified the generated content. I confirm that I am aware that I am fully responsible for the content of the thesis.
-  // \
-  // \
-  // I acknowledge that my thesis is subject to the rights and obligations stipulated by the Act No. 121/2000 Coll., the Copyright Act, as amended. In accordance with Section 2373(2) of Act No. 89/2012 Coll., the Civil Code, as amended, I hereby grant a non-exclusive authorization (licence) to utilize this thesis, including all computer programs that are part of it or attached to it and all documentation thereof (hereinafter collectively referred to as the "Work"), to any and all persons who wish to use the Work. Such persons are entitled to use the Work in any manner that does not diminish the value of the Work and for any purpose (including use for profit). This authorisation is unlimited in time, territory and quantity.
+  I hereby declare that the presented thesis is my own work and that I have cited all sources of information in accordance with the Guideline for adhering to ethical principles when elaborating an academic final thesis. I declare that I have used AI tools during the preparation and writing of my thesis. I have verified the generated content. I confirm that I am aware that I am fully responsible for the content of the thesis.
+  \
+  \
+  I acknowledge that my thesis is subject to the rights and obligations stipulated by the Act No. 121/2000 Coll., the Copyright Act, as amended. In accordance with Section 2373(2) of Act No. 89/2012 Coll., the Civil Code, as amended, I hereby grant a non-exclusive authorization (licence) to utilize this thesis, including all computer programs that are part of it or attached to it and all documentation thereof (hereinafter collectively referred to as the "Work"), to any and all persons who wish to use the Work. Such persons are entitled to use the Work in any manner that does not diminish the value of the Work and for any purpose (including use for profit). This authorisation is unlimited in time, territory and quantity.
 ]
 
 #let abstract-ENG = [
@@ -174,21 +173,18 @@
 
 === NumPy
 
+// TODO: mention inspiration from some libraries described above? 
 === JAX
 
+// TODO: The header looks weird in TOC because of the newline, fix
+= Accessing #cpp \ managed memory
 
-= Accessing #cpp  \ managed memory
+The previous chapter demonstrated that calling Python functions from #cpp is either impractical or prohibitively slow. These findings motivated the exploration of an alternative approach: rather than passing Python callbacks into the #cpp runtime, the data structures themselves can be exposed in a way that allows user-defined functions to operate on them directly from Python. As the benchmark in @function_calling_from_cpp_benchmark suggests, the dominant performance bottleneck lies in the repeated crossings of the language boundary, so eliminating those crossings is the primary objective.
 
-As calling and executing functions defined in Python from #cpp seem to be either unpractical or too slow. Therefore, alternative approaches were explored. With the goal being finding a way to allow custom modification of data held in TNL data structures, it's possible to invert the flow from Python to #cpp. 
-
-Instead of passing and binding the Python functions to the #cpp side of the code, we can expose the data structures in way where we could natively run the user defined functions on them right from Python. As the benchmark suggests the biggest slowdown occurred in the crossings of the language boundaries.
-
-Inverting the flow this way may eliminate this transfer as instead of passing each element, the TNL data structure will produce an interface that allows direct access to the underlying data in the memory. The consumer can read and even modify the data in place with no further need to call the PyTNL bindings or TNL functions. 
-
-Following three protocols described here were chosen for two primary reasons. Firstly Numba library described in @numba_introduction, or it's Numba-cuda counterpart, offers out of the box support for them. Numba JIT compiled functions can natively consume the interfaces with a relatively pleasant user experience as I will try to demonstrate later in the chapter.
+To this end, the approach taken in this chapter inverts the control flow. Instead of the #cpp side invoking a user-supplied function for each element, a TNL data structure produces an interface that grants direct access to its underlying memory. The consumer can then read and modify the data in place, with no further need to invoke the PyTNL bindings or TNL functions during the computation itself. The language boundary is crossed only once --- when the memory view is exported --- rather than on every element access.
 
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html#dlpack-an-in-memory-tensor-structure
-Secondly, all interfaces mentioned here come recommended in the Python Array API Standard for data transfers between different libraries and as such are likely to be most adopted in the Python ecosystem.
+The three data interchange protocols described in this chapter were selected for two reasons. First, the Numba library introduced in @numba_introduction, as well as its CUDA counterpart, provides out-of-the-box support for consuming them. Numba JIT-compiled functions can natively operate on the exported interfaces, yielding a convenient user experience that is demonstrated later in the chapter. Second, all three protocols are recommended by the Python Array API Standard as the preferred mechanisms for data exchange between libraries, making them the most widely adopted conventions in the Python scientific ecosystem.
 
 
 == Python Array API Standard
@@ -715,25 +711,100 @@ These results validate the central thesis of this chapter: exposing PyTNL's memo
 
 // https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5671636
 
-TNL-SPH is an open-source implementation of Smoothed Particle Hydrodynamics (SPH) built on top of the TNL. 
+// TODO: Consider adding citations for the original SPH papers (Lucy 1977, Gingold & Monaghan 1977)
+// R. A. Gingold and J. J. Monaghan. Smoothed particle hydrodynamics: theory and application to non-spherical stars. Monthly Notices of the Royal Astronomical Society, 181:375–389, 1977.
+Smoothed Particle Hydrodynamics (SPH) is a fully Lagrangian mesh-free method originally developed for astrophysical simulations, which has since been widely adopted in engineering, geophysics, and computer graphics for its ability to handle complex geometries, discontinuities, and free surfaces.
+
+TNL-SPH @halada2025tnlsph is an open-source SPH implementation developed as a submodule of the Template Numerical Library. TNL-SPH focuses on fluid flow modeling, and hydrodynamic problems in general, while providing a relatively high level, user-friendly interface, just like the rest of TNL. The library is designed with easy access to and extension of the main time loop in mind, allowing users to, for example, insert custom functions between any two operations in the loop. This gives users the freedom to specialize the solver for their specific use case. 
+
+Furthermore, examples showcased in the codebase already utilize Python to further improve the user experience. The Python scripts are used to prepare the simulation configuration, run the simulation, and post-process the results. That makes TNL-SPH an ideal demonstration case for this work and PyTNL expansion. If the whole user flow could be moved to Python, with no need for user to do the manual compilation step and without the run script needing  to launch a subprocess, that would be a significant improvement in the user experience and accessibility of the library.
 
 === PyTNL goals - workflow
 
-// TODO: Describe current user flow - python init - generated configs - manual compilation - python run of cpp compiled code
-// TODO: Describe the goals, what the workflow could be simplified to
-// TODO: Describe the approach of while loop compared to single run function and the option for user defined functions
+==== Current workflow <sph_current_workflow>
+
+The native TNL-SPH workflow, as described in the paper @halada2025tnlsph and its accompanying examples, involves three configuration files per simulation case. A compile-time configuration header `config.h` selects the device, particle representation, SPH model, and all of its associated template parameters --- kernel function, diffusive term, viscous term, equation of state, boundary condition type, time stepping strategy, and integration scheme. A runtime configuration file `config.ini` specifies physical and numerical parameters such as density, speed of sound, viscosity, CFL number, and paths to initial particle distributions. Finally, `case.h` contains the #cpp `main()` function that creates the solver instance and defines the simulation time loop.
+
+The time loop in `case.h` is structured as a sequence of individual phase calls, each corresponding to a distinct step of the SPH algorithm. This is deliberate. As mentioned, this allows users to insert their own custom logic between any two phases of the simulation. 
+
+#code1(
+  [The native #cpp time loop from a TNL-SPH example (adapted from the paper's Appendix~A @halada2025tnlsph). Each simulation phase is a separate method call, and the loop is explicitly designed for user extensibility.],
+  <sph_native_case_h>,
+  ```cpp
+#include "template/config.h"
+
+int main( int argc, char* argv[] )
+{
+    Simulation sph;
+    sph.init( argc, argv );
+    sph.writeProlog();
+
+    while( sph.timeStepping.runTheSimulation() )
+    {
+        sph.performNeighborSearch();
+        sph.interact();
+        sph.computeTimeStep();
+        sph.integrateVerletStep( SPHDefs::BCType::integrateInTime() );
+        sph.makeSnapshot();
+        sph.measure();
+        sph.updateTime();
+    }
+
+    sph.writeEpilog();
+}
+  ```,
+)
+
+While the loop itself is simple and straightforward, setting up the input data and configuration can still be a daunting task for new users. The compile-time configuration requires familiarity with C++ templates and the specific types defined in the TNL-SPH codebase. The runtime configuration involves editing an INI file with the correct parameter names and values as well as preparing the initial particle distribution in the Visualization Toolkit (VTK) format. 
+
+For that, the library ships with a couple of Python scripts that help with the setup, run and even post process the results. The `init.py` generates the runtime configuration, even the VTK files. It also performs text substitution in the `config_template.h` to generate the final `config.h`, filling in the three substituted parameters --- `DiffusiveTerm`, `ViscousTerm`, and `BCType` --- while the remaining template parameters (kernel function, EOS, time stepping, and integration scheme) are hardcoded in the template.
+
+After that however, the user must still manually compile the C++ code via `cmake --build build`, since the template parameters are baked into the generated header. The `run.py` script then serves a dual role: it conditionally invokes `init.py` as a subprocess --- either when the `--init` flag is passed explicitly, or automatically when the `sources/` directory does not yet exist --- and subsequently launches the compiled binary as a subprocess with the generated configuration. Finally, `postpro.py` reads the plain-text sensor measurement files (`sensorsPressure.dat`, `sensorsWaterLevel.dat`) and generates matplotlib plots from them. It also calls `writeParaviewSeriesFile.generate_series()` to produce a `.pvd` index file over the VTK snapshots, which allows ParaView to load the full simulation sequence.
+
+==== Simplified workflow goals
+
+The PyTNL expansion aims to collapse this multi-step process into a single Python script. Instead of separate initialisation, compilation, and execution phases --- each requiring different tools and knowledge --- the user should be able to specify the simulation configuration through Python methods and functions and drive the simulation time loop directly from Python.
+
+The key goals of PyTNL-SPH are:
+
++ No manual #cpp compilation --- the simulation is already compiled along with the library, or as the @sph_code_generation describes, the JIT plugin system compiles the variant on the spot and caches it by default.
++ No subprocess launching --- the simulation runs directly within the Python process.
++ No need to edit #cpp configuration headers --- all template parameters are selected through Python arguments.
++ User-defined functions can be written in Python --- including the possibility of JIT-compiled Numba functions operating on the solver's arrays through the data interchange protocols described in the preceding chapter --- rather than requiring #cpp code that must be compiled with the project.
+
+// TODO: Once the API is finalised, add a side-by-side comparison (table or two columns) showing the traditional three-step workflow vs. the single-script PyTNL approach.
 
 === Template instantiation <sph_template_instantiation>
 
-TNL-SPH is a heavily templated #cpp library. The simulation's behaviour is configured at compile time through a set of template parameters that select, among other things, the boundary condition type, viscous and diffusive terms, spatial dimension, floating-point precision, and target device. In native #cpp code, these choices are expressed as template arguments to the core simulation class and are resolved entirely by the compiler.
+The compile-time template configuration described in @sph_current_workflow creates a challenge for Python bindings. In native #cpp, the compiler instantiates templates on demand --- the user edits `config.h`, and only the requested combination of types is compiled. Nanobind, however, requires every template instantiation it wraps to be explicitly enumerated and compiled in advance. There is no mechanism to defer instantiation to runtime; the set of supported types is fixed when the extension module is built.
 
-// TODO: consider adding a brief code snippet showing the C++ template parameter list if it helps the reader
+To illustrate the scale of the problem, @sph_config_h shows how a single variant is assembled in `config.h`, and @sph_template_axes lists all available configuration axes:
 
-This design is idiomatic in performance-oriented #cpp libraries: the compiler specialises every function for the exact combination of types, enabling aggressive inlining, constant folding, and elimination of unused branches. The cost is that each distinct combination of parameters produces a separate template instantiation that must be compiled.
-
-When exposing such a library through Python bindings, each template instantiation becomes a distinct #cpp type that Nanobind must wrap individually. Unlike #cpp, where the compiler instantiates templates on demand, the binding layer requires every combination to be explicitly enumerated and compiled in advance. There is no mechanism in Nanobind (or pybind11) to defer template instantiation to runtime --- the set of supported types is fixed at the time the extension module is built.
-
-For the SPH solver, the compile-time configuration axes and their options are:
+#code1(
+  [Compile-time configuration of a TNL-SPH simulation variant in `config.h` (adapted from the paper's Appendix~A @halada2025tnlsph). Each `using` declaration selects a specific implementation for one template axis; the final `Model` and `Simulation` types compose all choices into a single #cpp type.],
+  <sph_config_h>,
+  ```cpp
+class SPHParams {
+    using KernelFunction =
+        TNL::SPH::WendlandKernel<SPHConfig<Device>>;
+    using DiffusiveTerm =
+        TNL::SPH::MolteniDiffusiveTerm<SPHConfig<Device>>;
+    using ViscousTerm =
+        TNL::SPH::ArtificialViscosity<SPHConfig<Device>>;
+    using EOS =
+        TNL::SPH::TaitWeaklyCompressibleEOS<SPHConfig<Device>>;
+    using BCType = TNL::SPH::DBC;
+    using TimeStepping =
+        TNL::SPH::ConstantTimeStep<SPHConfig<Device>>;
+    using IntegrationScheme =
+        TNL::SPH::VerletScheme<SPHConfig<Device>>;
+};
+using Model =
+    TNL::SPH::WCSPH_DBC<ParticlesSys, SPHParams<Device>>;
+using Simulation =
+    TNL::SPH::SPHMultiset_CFD<Model>;
+  ```,
+)
 
 #figure(
   table(
@@ -758,11 +829,9 @@ For the SPH solver, the compile-time configuration axes and their options are:
 The total number of distinct combinations is:
 $ 2 times 3 times 3 times 1 times 2 times 2 times 2 times 2 = 288 $
 
-Pre-compiling all 288 variants into a single extension module is impractical for several reasons. First, CUDA compilation through `nvcc` is slow --- each variant requires processing the entire heavily-templated SPH header hierarchy, and the total build time would be measured in hours. Second, the resulting binary would be enormous, as each instantiation duplicates a substantial amount of generated machine code. Third, any change to the set of options (adding a new kernel function, for example) would multiply the variant count further.
+Pre-compiling all 288 variants into a single extension module is impractical. CUDA compilation through `nvcc` is slow --- each variant requires processing the entire heavily-templated SPH header hierarchy, and the total build time would be measured in hours. The resulting binary would be enormous, and any change to the set of options (adding a new kernel function, for example) would multiply the variant count further.
 
-// TODO: maybe mention that the traditional TNL-SPH workflow solves this by compiling only one variant at a time via text substitution in C++ headers? This was described in the "PyTNL goals - workflow" section above; check if a forward/backward reference is appropriate here.
-
-In practice, a given user typically needs only a handful of variants for their particular simulation case. The challenge is therefore not to compile all possible combinations, but to compile _only the requested one_, on demand, and cache the result for future use. This is the motivation for the code generation approach described in the following section.
+The traditional workflow sidesteps this by compiling only one variant at a time, but that still requires the user to trigger the build manually. The challenge for PyTNL is to compile _only the requested variant_, on demand, and cache the result --- all transparently behind a Python API. This is the motivation for the code generation approach described in the following section.
 
 === Code generation <sph_code_generation>
 
@@ -849,6 +918,14 @@ The Python `while` loop replaces the fixed #cpp time loop that was previously co
 
 // TODO: compare the traditional three-step workflow (init.py → cmake build → run binary) with this single-script approach in a concise table or paragraph? The "PyTNL goals - workflow" section should set this up; verify it does.
 
+==== Extensible time loop
+
+// The native #cpp time loop shown in @sph_native_case_h exposes individual simulation phases as separate method calls. The PyTNL approach mirrors this structure: the `ISimulation` interface (described in detail in @sph_code_generation) exposes the same phases as Python-callable methods, and the user drives the loop from a Python `while` statement. This preserves the extensibility that the paper identifies as a core design requirement, while removing the need to write or compile #cpp code for custom logic.
+
+// This is in contrast to an alternative of exposing a single monolithic `run()` method that would execute the entire simulation to completion. While such a method could be provided as a convenience, the phase-by-phase approach is essential for any use case that requires interleaving user logic --- diagnostics, adaptive control, post-processing, or the protocol-based Numba kernels demonstrated earlier --- between the compute-heavy #cpp phases. Each phase method releases the Python GIL during execution, ensuring that the interpreter is not blocked during long-running GPU computations.
+
+// TODO: Decide whether to also provide a convenience sim.run() one-liner for simple cases where no interleaving is needed.
+
 === Summary
 
 The code generation approach successfully addresses the combinatorial explosion inherent in pre-compiling all template variants. Instead of building 288 possible instantiations ahead of time, only the specific variant requested by the user is compiled, cached, and dynamically loaded. The compilation is fully automated and transparent to the user, who interacts with a single Python factory function.
@@ -859,6 +936,8 @@ The plugin architecture also enables the Python-side time loop, which is a quali
 
 // TODO: discuss whether user-defined functions (e.g., custom force terms) could be integrated into this pipeline --- either via the Numba/protocol approach from the previous chapter, or by extending the code generation to accept user-supplied C++ snippets. Evaluate trade-offs.
 // TODO: mention any current limitations or known issues (e.g., first-compilation latency, dependency on matching compiler versions, no Windows support?)
+
+
 
 = Julia ?
 
