@@ -88,7 +88,7 @@
 
 == CUDA, GPU computations
 
-// short intro 
+// short intro
 
 == Introduction to TNL
 
@@ -173,7 +173,7 @@
 
 === NumPy
 
-// TODO: mention inspiration from some libraries described above? 
+// TODO: mention inspiration from some libraries described above?
 === JAX
 
 // TODO: The header looks weird in TOC because of the newline, fix
@@ -205,7 +205,7 @@ The interoperability can be achieved either by Python's duck typing, or, more im
 
 I list the requirements in @array_standard_interchange_requirements_table. For our use case, that is allowing Numba's JIT compiled functions to execute upon the PyTNL's array, the most important requirement is allowing the zero-copy view. Forcing a copy, be it inside the same memory block or worse, from one device memory to another, would likely once again invalidate all the performance gains the function compilation provides in the first place.
 
-It's of course similarly important to offer multi device support, as the (Py)TNL is built with device support in mind as well. However, this requirement can be be easily circumvented by simply supporting multiple different protocols. 
+It's of course similarly important to offer multi device support, as the (Py)TNL is built with device support in mind as well. However, this requirement can be be easily circumvented by simply supporting multiple different protocols.
 
 
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html
@@ -215,18 +215,18 @@ It's of course similarly important to offer multi device support, as the (Py)TNL
     // stroke: none,
     // gutter: 0.8em,
     inset: (x: 8pt, y: 12pt),
-    
+
     // Academic Header
     table.header(
       // table.hline(stroke: 1.5pt),
       [*Component*], [*Requirement and Rationale*],
       // table.hline(stroke: 0.5pt),
     ),
-    
+
     // Row 1
     [*Memory Layout*], [
       Data access via a protocol that describes the memory layout of the array in an implementation-independent manner.
-      
+
       #set text(size: 0.9em, style: "italic")
       Rationale: any number of libraries must be able to exchange data, and no particular package must be needed to do so.
     ],
@@ -239,7 +239,7 @@ It's of course similarly important to offer multi device support, as the (Py)TNL
     // Row 3
     [*Device Support*], [
       Device support. It must be possible to determine on what device the array that is to be converted lives.
-      
+
       #set text(size: 0.9em, style: "italic")
       Rationale: there are CPU-only, GPU-only, and multi-device array types; it’s best to support these with a single protocol (with separate per-device protocols it’s hard to figure out unambiguous rules for which protocol gets used, and the situation will get more complex over time as TPU’s and other accelerators become more widely available).
     ],
@@ -247,7 +247,7 @@ It's of course similarly important to offer multi device support, as the (Py)TNL
     // Row 4
     [*Zero-copy*], [
       Zero-copy semantics where possible, making a copy only if needed (e.g. when data is not contiguous in memory).
-      
+
       #set text(size: 0.9em, style: "italic")
       Rationale: performance.
     ],
@@ -255,11 +255,11 @@ It's of course similarly important to offer multi device support, as the (Py)TNL
     // Row 5
     [*Interfaces*], [
       A Python-side and a C-side interface, the latter with a stable C ABI.
-      
+
       #set text(size: 0.9em, style: "italic")
       Rationale: all prominent existing array libraries are implemented in C/C++, and are released independently from each other. Hence a stable C ABI is required for packages to work well together.
     ],
-    
+
     table.hline(stroke: 1.5pt),
   ),
   caption: [Array API interchange protocol requirements and rationales.],
@@ -297,7 +297,7 @@ The specification itself is rather simple, especially as, compared to the Buffer
 
 // TODO: Make sure the field descriptions are more coherent
 
-As such, the interface defines only a single attribute that should be accessible on the array-like objects named `__cuda_array_interface__`.  It must return a regular Python dictionary with fields described in @cai_fields. 
+As such, the interface defines only a single attribute that should be accessible on the array-like objects named `__cuda_array_interface__`.  It must return a regular Python dictionary with fields described in @cai_fields.
 
 The consumer simply accesses the underlying buffer by the supplied pointer in the `data` field. Rest of the dictionary should provide all the necessary metadata such as element's `datatype`, `shape`, and others to allow the consumer to work with the data as it sees fit.
 
@@ -414,7 +414,7 @@ A notable detail concerns the Buffer protocol specifically. Unlike DLPack and th
 
 With the protocol implementations in place, PyTNL's array containers become consumable by any library that understands the corresponding interchange mechanism. This section describes the concrete capabilities that these protocols enable, organized around four objectives:
 
-+ *Zero-copy interoperability.* Although PyTNL aims to be a self-contained library, allowing the no-copy views in other libraries gives users the freedom to use the best tool for the job. And thanks to sharing the buffer, the modifications are made immediately accesible even in the originating PyTNL array. 
++ *Zero-copy interoperability.* Although PyTNL aims to be a self-contained library, allowing the no-copy views in other libraries gives users the freedom to use the best tool for the job. And thanks to sharing the buffer, the modifications are made immediately accesible even in the originating PyTNL array.
 + *Direct execution of JIT-compiled functions on PyTNL containers.* Through the Buffer protocol (CPU) and DLPack (CUDA), Numba-compiled functions and kernels can operate directly on PyTNL arrays without requiring an explicit data copy or conversion. This includes scalar JIT functions, vectorized operations, and multi-dimensional CUDA kernels.
 + *Applicability to non-array data structures.* The protocols are defined for dense, contiguous memory regions and therefore map naturally onto `NDArray`. However, sparse formats such as CSR matrices store their data in multiple separate arrays (values, column indices, row pointers), each of which can be individually exported. This section explores what operations this partial exposure enables and where its limitations lie.
 + *Performance evaluation.* The element-wise operations executed through the protocol-based direct access are benchmarked and compared against the results from @function_calling_from_cpp_benchmark, where Python functions were passed across the language boundary into the #cpp runtime.
@@ -461,9 +461,9 @@ I demonstrate the zero-copy interoperability on a very simple use case. After Py
   ```,
 )
 
-This example is, of course, very simple, but as the changes do not propagate by some kind of synchronization mechanism but rather simply through shared memory, the same principle applies to any kind of modification as long as the operation doesn't require a copy or reallocation due to shape changes. 
+This example is, of course, very simple, but as the changes do not propagate by some kind of synchronization mechanism but rather simply through shared memory, the same principle applies to any kind of modification as long as the operation doesn't require a copy or reallocation due to shape changes.
 
-This allows users to leverage the strengths of different libraries on the same data with little to no performance penalty. 
+This allows users to leverage the strengths of different libraries on the same data with little to no performance penalty.
 
 === JIT-compiled operations on arrays
 
@@ -509,9 +509,9 @@ fill_with_index_njit(host_arr)  # runs at native speed via Buffer protocol
   ```,
 )
 
-Note that the function accepts the whole array and contains its own loop. The user has full control over the iteration, indexing, and any conditional logic. This is particularly powerful for operations that do not map cleanly onto existing library primitives --- custom reductions, conditional updates, or any loop-heavy algorithm that would otherwise require dropping into #cpp. 
+Note that the function accepts the whole array and contains its own loop. The user has full control over the iteration, indexing, and any conditional logic. This is particularly powerful for operations that do not map cleanly onto existing library primitives --- custom reductions, conditional updates, or any loop-heavy algorithm that would otherwise require dropping into #cpp.
 
-The disadvantage is that the user not only can, but must, write the loop themselves. That looses some of the convinience simple element-wise operations and the original `parallelFor` TNL function. 
+The disadvantage is that the user not only can, but must, write the loop themselves. That looses some of the convinience simple element-wise operations and the original `parallelFor` TNL function.
 
 Still, the key insight is that this allows users to write standard Python code and as will be seen in @benchmark_user_functions_protocol_table, this happens without the usual performance costs associated with Python.
 
@@ -692,7 +692,7 @@ The benchmark measures the same operation --- scaling every element of a $2^21$-
 
 The most important observation is that PyTNL arrays accessed through the protocols perform on par with their native counterparts. Numba `@jit` on a PyTNL host array (0.795 ms) is virtually identical to the same function on a NumPy array (0.810 ms), and both match the NumPy ufunc baseline (0.843 ms). Similarly, `@cuda.jit` on a PyTNL CUDA `NDArray` (0.093 ms) is indistinguishable from the same kernel on a CuPy array (0.094 ms). This confirms that the protocol-based export introduces negligible overhead --- once the buffer reference is handed off, the JIT-compiled code operates on raw memory at the same speed regardless of the originating library.
 
-On the GPU side, the `cuda.jit` results are roughly 9× faster than the CPU baseline, which is expected given the massively parallel nature of the operation and the hardware used. This is further supported by the fact that increasing $N$ does not significantly change the per-iteration time on the GPU, while it does rise lineary on the CPU, confirming the parallel nature of the execution. 
+On the GPU side, the `cuda.jit` results are roughly 9× faster than the CPU baseline, which is expected given the massively parallel nature of the operation and the hardware used. This is further supported by the fact that increasing $N$ does not significantly change the per-iteration time on the GPU, while it does rise lineary on the CPU, confirming the parallel nature of the execution.
 
 The `@vectorize` results (1.2--1.3 ms) are somewhat slower than the `@jit` approach, which is consistent with the additional overhead of the ufunc dispatch machinery. Note that in the benchmark, the workaround mentioned in @numba_vectorize_usage was used to achieve in-place mutation. So the slowdown is not caused by extra allocation. Still, the performance different is very slight and seems to be a reasonable tradeoff for the convenience of writing scalar logic without explicit loops.
 
@@ -715,7 +715,7 @@ These results validate the central thesis of this chapter: exposing PyTNL's memo
 // R. A. Gingold and J. J. Monaghan. Smoothed particle hydrodynamics: theory and application to non-spherical stars. Monthly Notices of the Royal Astronomical Society, 181:375–389, 1977.
 Smoothed Particle Hydrodynamics (SPH) is a fully Lagrangian mesh-free method originally developed for astrophysical simulations, which has since been widely adopted in engineering, geophysics, and computer graphics for its ability to handle complex geometries, discontinuities, and free surfaces.
 
-TNL-SPH @halada2025tnlsph is an open-source SPH implementation developed as a submodule of the Template Numerical Library. TNL-SPH focuses on fluid flow modeling, and hydrodynamic problems in general, while providing a relatively high level, user-friendly interface, just like the rest of TNL. The library is designed with easy access to and extension of the main time loop in mind, allowing users to, for example, insert custom functions between any two operations in the loop. This gives users the freedom to specialize the solver for their specific use case. 
+TNL-SPH @halada2025tnlsph is an open-source SPH implementation developed as a submodule of the Template Numerical Library. TNL-SPH focuses on fluid flow modeling, and hydrodynamic problems in general, while providing a relatively high level, user-friendly interface, just like the rest of TNL. The library is designed with easy access to and extension of the main time loop in mind, allowing users to, for example, insert custom functions between any two operations in the loop. This gives users the freedom to specialize the solver for their specific use case.
 
 Furthermore, examples showcased in the codebase already utilize Python to further improve the user experience. The Python scripts are used to prepare the simulation configuration, run the simulation, and post-process the results. That makes TNL-SPH an ideal demonstration case for this work and PyTNL expansion. If the whole user flow could be moved to Python, with no need for user to do the manual compilation step and without the run script needing  to launch a subprocess, that would be a significant improvement in the user experience and accessibility of the library.
 
@@ -725,7 +725,7 @@ Furthermore, examples showcased in the codebase already utilize Python to furthe
 
 The native TNL-SPH workflow, as described in the paper @halada2025tnlsph and its accompanying examples, involves three configuration files per simulation case. A compile-time configuration header `config.h` selects the device, particle representation, SPH model, and all of its associated template parameters --- kernel function, diffusive term, viscous term, equation of state, boundary condition type, time stepping strategy, and integration scheme. A runtime configuration file `config.ini` specifies physical and numerical parameters such as density, speed of sound, viscosity, CFL number, and paths to initial particle distributions. Finally, `case.h` contains the #cpp `main()` function that creates the solver instance and defines the simulation time loop.
 
-The time loop in `case.h` is structured as a sequence of individual phase calls, each corresponding to a distinct step of the SPH algorithm. This is deliberate. As mentioned, this allows users to insert their own custom logic between any two phases of the simulation. 
+The time loop in `case.h` is structured as a sequence of individual phase calls, each corresponding to a distinct step of the SPH algorithm. This is deliberate. As mentioned, this allows users to insert their own custom logic between any two phases of the simulation.
 
 #code1(
   [The native #cpp time loop from a TNL-SPH example (adapted from the paper's Appendix~A @halada2025tnlsph). Each simulation phase is a separate method call, and the loop is explicitly designed for user extensibility.],
@@ -755,7 +755,7 @@ int main( int argc, char* argv[] )
   ```,
 )
 
-While the loop itself is simple and straightforward, setting up the input data and configuration can still be a daunting task for new users. The compile-time configuration requires familiarity with C++ templates and the specific types defined in the TNL-SPH codebase. The runtime configuration involves editing an INI file with the correct parameter names and values as well as preparing the initial particle distribution in the Visualization Toolkit (VTK) format. 
+While the loop itself is simple and straightforward, setting up the input data and configuration can still be a daunting task for new users. The compile-time configuration requires familiarity with C++ templates and the specific types defined in the TNL-SPH codebase. The runtime configuration involves editing an INI file with the correct parameter names and values as well as preparing the initial particle distribution in the Visualization Toolkit (VTK) format.
 
 For that, the library ships with a couple of Python scripts that help with the setup, run and even post process the results. The `init.py` generates the runtime configuration, even the VTK files. It also performs text substitution in the `config_template.h` to generate the final `config.h`, filling in the three substituted parameters --- `DiffusiveTerm`, `ViscousTerm`, and `BCType` --- while the remaining template parameters (kernel function, EOS, time stepping, and integration scheme) are hardcoded in the template.
 
@@ -829,13 +829,15 @@ using Simulation =
 The total number of distinct combinations is:
 $ 2 times 3 times 3 times 1 times 2 times 2 times 2 times 2 = 288 $
 
-Pre-compiling all 288 variants into a single extension module is impractical. CUDA compilation through `nvcc` is slow --- each variant requires processing the entire heavily-templated SPH header hierarchy, and the total build time would be measured in hours. The resulting binary would be enormous, and any change to the set of options (adding a new kernel function, for example) would multiply the variant count further.
+Pre-compiling all 288 variants into a single extension module is impractical. CUDA compilation through `nvcc` is slow --- each variant requires processing the entire heavily-templated SPH header hierarchy, and the total build time would be very long. The resulting binary would also be way larger then necessary, and any change to the set of options (adding a new kernel function, for example) would multiply the variant count further.
 
 The traditional workflow sidesteps this by compiling only one variant at a time, but that still requires the user to trigger the build manually. The challenge for PyTNL is to compile _only the requested variant_, on demand, and cache the result --- all transparently behind a Python API. This is the motivation for the code generation approach described in the following section.
 
 === Code generation <sph_code_generation>
 
 To avoid the combinatorial explosion of pre-compiled variants, the approach taken generates and compiles a standalone #cpp plugin for each requested combination of template parameters at runtime. The plugin is compiled once, cached on disk, and loaded into the running Python process via dynamic linking. Subsequent runs with the same configuration skip compilation entirely.
+
+This approach differs from the JIT approaches described in previous chapters as it
 
 ==== Variant specification
 
@@ -945,7 +947,7 @@ The plugin architecture also enables the Python-side time loop, which is a quali
 
 == C like performance
 
-== JIT 
+== JIT
 
 
 // = Theory
@@ -958,17 +960,17 @@ The plugin architecture also enables the Python-side time loop, which is a quali
 
 // == PyTNL
 
-// === Capabilities, what I am going to handle 
+// === Capabilities, what I am going to handle
 
 // == Python Buffer Protocol
 
 // == Cuda array interface
 
-// == 
+// ==
 
 // = Lambda functions at the \ language barrier
 
-// PyTNL as a Python interface for TNL library provides bindings for the original #cpp code. 
+// PyTNL as a Python interface for TNL library provides bindings for the original #cpp code.
 
 // = Dynamic compiling of lambda functions
 
@@ -998,12 +1000,12 @@ The plugin architecture also enables the Python-side time loop, which is a quali
 
 // The goal is reasonably simple from the API perspective. PyTNL should allow users to write some kind of lambda functions and allow executing them upon PyTNL exposed data structures. Ideally we would expose already existing higher order functions from TNL.
 
-// The main challenge of binding a higher order function such as `ParallelFor` is the ability to pass a Python Lambda function into 
+// The main challenge of binding a higher order function such as `ParallelFor` is the ability to pass a Python Lambda function into
 
 // Binding a higher order function such as `ParallelFor` faces two big challenges:
 
 // + Passing a Python Lambda function into the #cpp codebase and executing it from there.
-// + Allowing the context capture. As above, we would be capturing Python objects and subsequently passing them once again into the #cpp runtime. 
+// + Allowing the context capture. As above, we would be capturing Python objects and subsequently passing them once again into the #cpp runtime.
 
 
 
@@ -1012,7 +1014,7 @@ The plugin architecture also enables the Python-side time loop, which is a quali
 
 // === Numba
 
-// To battle the performance issues of Python code, I tried to explore JIT compilation options. If we could precompile the python lambdas and separate it from the interpreter, we could achieve significant speed increase. 
+// To battle the performance issues of Python code, I tried to explore JIT compilation options. If we could precompile the python lambdas and separate it from the interpreter, we could achieve significant speed increase.
 // // TODO some source showing JIT in Numba actually speeds something up.
 
 // However, even JIT Numba precompiled functions are still passed through the bindings as a Python object and is still pretty slow.
@@ -1025,4 +1027,3 @@ The plugin architecture also enables the Python-side time loop, which is a quali
 // // TODO: What about nb::callable???
 
 // === Cupy, Cuda CORE - NRVTC
-
