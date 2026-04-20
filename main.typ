@@ -729,9 +729,9 @@ These results validate the central thesis of this chapter: exposing PyTNL's memo
 // R. A. Gingold and J. J. Monaghan. Smoothed particle hydrodynamics: theory and application to non-spherical stars. Monthly Notices of the Royal Astronomical Society, 181:375–389, 1977.
 Smoothed Particle Hydrodynamics (SPH) is a fully Lagrangian mesh-free method originally developed for astrophysical simulations, which has since been widely adopted in engineering, geophysics, and computer graphics for its ability to handle complex geometries, discontinuities, and free surfaces.
 
-TNL-SPH @halada2025tnlsph is an open-source SPH implementation developed as a submodule of the Template Numerical Library. TNL-SPH focuses on fluid flow modeling, and hydrodynamic problems in general, while providing a relatively high level, user-friendly interface, just like the rest of TNL. The library is designed with easy access to and extension of the main time loop in mind, allowing users to, for example, insert custom functions between any two operations in the loop. This gives users the freedom to specialize the solver for their specific use case.
+TNL-SPH @halada2025tnlsph is an open-source SPH implementation developed as a submodule of the Template Numerical Library. TNL-SPH focuses on fluid flow modeling, and hydrodynamic problems in general, while providing a relatively high level, user-friendly interface, just like the rest of TNL. The library is designed with easy access to and extension of the main time loop in mind, allowing users to insert custom functions between any two operations in the loop.
 
-Furthermore, examples showcased in the codebase already utilize Python to further improve the user experience. The Python scripts are used to prepare the simulation configuration, run the simulation, and post-process the results. That makes TNL-SPH an ideal demonstration case for this work and PyTNL expansion. If the whole user flow could be moved to Python, with no need for user to do the manual compilation step and without the run script needing  to launch a subprocess, that would be a significant improvement in the user experience and accessibility of the library.
+The existing examples already ship with Python scripts that prepare the simulation configuration, run the simulation, and post-process the results. That makes TNL-SPH an ideal demonstration case for this work. If the whole user flow could be moved to Python --- with no manual compilation step and no subprocess launching --- that would be a significant improvement in the user experience and accessibility of the library.
 
 === PyTNL goals - workflow
 
@@ -739,7 +739,7 @@ Furthermore, examples showcased in the codebase already utilize Python to furthe
 
 The native TNL-SPH workflow, as described in the paper @halada2025tnlsph and its accompanying examples, involves three configuration files per simulation case. A compile-time configuration header `config.h` selects the device, particle representation, SPH model, and all of its associated template parameters --- kernel function, diffusive term, viscous term, equation of state, boundary condition type, time stepping strategy, and integration scheme. A runtime configuration file `config.ini` specifies physical and numerical parameters such as density, speed of sound, viscosity, CFL number, and paths to initial particle distributions. Finally, `case.h` contains the #cpp `main()` function that creates the solver instance and defines the simulation time loop.
 
-The time loop in `case.h` is structured as a sequence of individual phase calls, each corresponding to a distinct step of the SPH algorithm. This is deliberate. As mentioned, this allows users to insert their own custom logic between any two phases of the simulation.
+The time loop in `case.h` is structured as a sequence of individual phase calls, each corresponding to a distinct step of the SPH algorithm. This is deliberate: it allows users to insert custom logic between any two phases of the simulation.
 
 #code1(
   [The native #cpp time loop from a TNL-SPH example (adapted from the paper's Appendix~A @halada2025tnlsph). Each simulation phase is a separate method call, and the loop is explicitly designed for user extensibility.],
@@ -771,7 +771,7 @@ The time loop in `case.h` is structured as a sequence of individual phase calls,
 
 While the loop itself is simple and straightforward, setting up the input data and configuration can still be a daunting task for new users. The compile-time configuration requires familiarity with C++ templates and the specific types defined in the TNL-SPH codebase. The runtime configuration involves editing an INI file with the correct parameter names and values as well as preparing the initial particle distribution in the Visualization Toolkit (VTK) format.
 
-For that, the library ships with a couple of Python scripts that help with the setup, run and even post process the results. The `init.py` generates the runtime configuration, even the VTK files. It also performs text substitution in the `config_template.h` to generate the final `config.h`, filling in the three substituted parameters --- `DiffusiveTerm`, `ViscousTerm`, and `BCType` --- while the remaining template parameters (kernel function, EOS, time stepping, and integration scheme) are hardcoded in the template.
+To help with this, the library ships with several Python scripts. The `init.py` generates the runtime configuration and the VTK files. It also performs text substitution in the `config_template.h` to generate the final `config.h`, filling in the three substituted parameters --- `DiffusiveTerm`, `ViscousTerm`, and `BCType` --- while the remaining template parameters (kernel function, EOS, time stepping, and integration scheme) are hardcoded in the template.
 
 After that however, the user must still manually compile the C++ code via `cmake --build build`, since the template parameters are baked into the generated header. The `run.py` script then serves a dual role: it conditionally invokes `init.py` as a subprocess --- either when the `--init` flag is passed explicitly, or automatically when the `sources/` directory does not yet exist --- and subsequently launches the compiled binary as a subprocess with the generated configuration. Finally, `postpro.py` reads the plain-text sensor measurement files (`sensorsPressure.dat`, `sensorsWaterLevel.dat`) and generates matplotlib plots from them. It also calls `writeParaviewSeriesFile.generate_series()` to produce a `.pvd` index file over the VTK snapshots, which allows ParaView to load the full simulation sequence.
 
@@ -843,19 +843,19 @@ $ 2 times 3 times 3 times 1 times 2 times 2 times 2 times 2 = 288 $
 
 Pre-compiling all 288 variants into a single extension module is impractical. CUDA compilation through `nvcc` is slow --- each variant requires processing the entire heavily-templated SPH header hierarchy, and the total build time would be very long. The resulting binary would also be way larger then necessary, and any change to the set of options (adding a new kernel function, for example) would multiply the variant count further.
 
-That leaves two possible available choices:
+That leaves two choices:
 
 + Analyze the domain and identify a smaller subset of "common" variants to compile in advance. Users needing other configurations would either have to modify the source code or simply revert to the traditional #cpp workflow.
 + Generate and compile the requested variant on demand at runtime. Potentially caching the results to avoid recompilations.
 
-As per this work's goal of improving accessibility and user experience, the second option was chosen. The following sections propose and describe an example implementation of the runtime code generation and compilation system for TNL-SPH.
+Given this work's goal of improving accessibility and user experience, the second option was chosen. The following sections describe the runtime code generation and compilation system implemented for TNL-SPH.
 
 === Code generation <sph_code_generation>
 
 // TODO: Check there are experiments describing this...:d
-Experiments described in @nvrtc_introduction demonstrate that runtime compilators like NVRTC fail to compile the heavily-templated TNL code base which prides itself at it's user code being device independant and easily runnable both on CPU and GPU. The code generation therefore relies on the whole standart toolchain.
+Experiments described in @nvrtc_introduction demonstrate that runtime compilers like NVRTC fail to compile the heavily-templated TNL code base, whose design relies on device-independent user code that runs on both CPU and GPU. The code generation therefore relies on the standard toolchain.
 
-Cmake is used to configure and drive the compilation and `nvcc` compilator itself is used to compile the CUDA variants. This requires user to set up the whole toolchain to run it. That is however already expected of users who build the original TNL-SPH from source, so it does not represent an additional barrier. No new dependencies are introduced.
+CMake is used to configure and drive the compilation, and `nvcc` is used to compile the CUDA variants. This requires the user to have the full toolchain installed. That is, however, already expected of users who build the original TNL-SPH from source, so it does not represent an additional barrier. No new dependencies are introduced.
 
 ==== Variant specification
 
@@ -867,7 +867,7 @@ The code generator uses simple `{{TOKEN}}` placeholder substitution --- no exter
 
 For each variant, two files are produced:
 
-+ *`plugin.cpp`* --- a self-contained #cpp translation unit (~210 lines) that defines the fully-resolved type aliases for the particle system configuration, SPH parameters, and the simulation model. It mostly implements the logic previously hosted compile-time `config.h`. Additionally, it exports three `extern "C"` entry points: `sph_create()`, `sph_destroy()`, and `sph_variant_id()`. The `extern "C"` linkage prevents #cpp name mangling and establishes a stable C ABI across separately compiled modules. After loading the compiled plugin, the host finds these functions via `dlsym` and uses them to create and manage the simulation instance.
++ *`plugin.cpp`* --- a self-contained #cpp translation unit (~210 lines) that defines the fully-resolved type aliases for the particle system configuration, SPH parameters, and the simulation model --- essentially the logic previously in the compile-time `config.h`. It also exports three `extern "C"` entry points: `sph_create()`, `sph_destroy()`, and `sph_variant_id()`. The `extern "C"` linkage prevents #cpp name mangling and establishes a stable C ABI across separately compiled modules. After loading the compiled plugin, the host finds these functions via `dlsym` and uses them to create and manage the simulation instance.
 
 + *`CMakeLists.txt`* --- a standalone CMake project that builds the plugin as a shared library (`plugin.so`). It reuses the exact compilers, C++ standard, and include paths from the original PyTNL-SPH build through a `build_info` module, ensuring ABI compatibility between the host extension and the dynamically loaded plugins.
 
@@ -943,7 +943,7 @@ The plugin's `sph_create()` function returns a pointer to a `ConcreteSimulation<
 // OR: Do not include the paragrapth about composition at all...
 // Inheriting from both `ISimulation` and the large, non-polymorphic `SPHMultiset_CFD` would constitute problematic multiple inheritance — `SPHMultiset_CFD` has no virtual destructor and was not designed to be a base class — and the combination of virtual dispatch with CUDA device-side code creates further ABI hazards. Composition avoids both problems with no overhead.
 
-The `ISimulation` interface exposes the individual phases of the simulation time step as separate methods: `performNeighborSearch()`, `interact()`, `computeTimeStep()`, `integrateVerletStep()`, and others. Following the original TNL-SPH design. All compute methods release the Python GIL during execution, ensuring that the interpreter is not blocked during long-running GPU or multi-threaded CPU computations.
+The `ISimulation` interface exposes the individual phases of the simulation time step as separate methods: `performNeighborSearch()`, `interact()`, `computeTimeStep()`, `integrateVerletStep()`, and others --- following the original TNL-SPH design. All compute methods release the Python GIL during execution, ensuring that the interpreter is not blocked during long-running GPU or multi-threaded CPU computations.
 
 ==== User-facing API
 
@@ -981,7 +981,7 @@ From the user's perspective, the entire compilation and loading pipeline is hidd
   ```,
 )
 
-@sph_jit_usage_example shows just a simplified versiton of the final `run.py` script. The actual script still handles the runtime configuration generation and initial particle distribution setup, but all of that is done through Python functions rather than subprocess calls to separate scripts. The user interacts with a single Python script that handles everything from configuration to execution, without needing to touch any #cpp code or manually invoke the build system.
+@sph_jit_usage_example shows a simplified version of the final `run.py` script. The actual script still handles the runtime configuration generation and initial particle distribution setup, but all of that is done through Python functions rather than subprocess calls to separate scripts. The user interacts with a single Python script that handles everything from configuration to execution, without needing to touch any #cpp code or manually invoke the build system.
 
 // TODO: compare the traditional three-step workflow (init.py → cmake build → run binary) with this single-script approach in a concise table or paragraph? The "PyTNL goals - workflow" section should set this up; verify it does.
 
@@ -997,7 +997,7 @@ Extending data access through ISimulation is non-trivial, because the interface 
 
 A solution that preserves this decoupling is to expose only raw buffer descriptors: a pointer, an element count, a scalar type tag, and a device flag — all plain C types, safe across the ABI boundary. The host pytnl_sph module would then wrap each pointer into a PyTNL ArrayView, a non-owning view type that holds only a pointer and size without taking ownership of the underlying memory. This would let the plugin remain the sole owner of particle data while giving the Python side a first-class PyTNL object supporting the same operations as a regular array. ArrayView already exists in TNL's C++ layer with a bind(pointer, size) method; the remaining work would be exposing it to Python through PyTNL's bindings.
 
-A drastic alternative could be expanding and leaning more heavily into the code generation. Instead of the time loop being driven in Python, the user could provide a #cpp snippet of the loop that would be injected into the generated `plugin.cpp` and compiled together with the rest of the code. Python side would then simply load the prepared, user defined, loop and execute it. In some ways however, this would be a step back, more then expanding the PyTNL, this would be more of an improvement to existing scripts and tooling. No actual binding of TNL-SPH code to PyTNL would be really required. 
+A more drastic alternative would be to lean more heavily into the code generation. Instead of the time loop being driven from Python, the user could provide a #cpp snippet that would be injected into the generated `plugin.cpp` and compiled together with the rest of the code. The Python side would then simply load and execute the prepared loop. In some ways, however, this would be a step back --- more an improvement to the existing scripts and tooling than an expansion of PyTNL. No actual binding of TNL-SPH code would be required. 
 
 // === Summary
 
