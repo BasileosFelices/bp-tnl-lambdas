@@ -12,7 +12,7 @@
   I hereby declare that the presented thesis is my own work and that I have cited all sources of information in accordance with the Guideline for adhering to ethical principles when elaborating an academic final thesis. I declare that I have used AI tools during the preparation and writing of my thesis. I have verified the generated content. I confirm that I am aware that I am fully responsible for the content of the thesis.
   \
   \
-  I acknowledge that my thesis is subject to the rights and obligations stipulated by the Act No. 121/2000 Coll., the Copyright Act, as amended. In accordance with Section 2373(2) of Act No. 89/2012 Coll., the Civil Code, as amended, I hereby grant a non-exclusive authorization (licence) to utilize this thesis, including all computer programs that are part of it or attached to it and all documentation thereof (hereinafter collectively referred to as the "Work"), to any and all persons who wish to use the Work. Such persons are entitled to use the Work in any manner that does not diminish the value of the Work and for any purpose (including use for profit). This authorisation is unlimited in time, territory and quantity.
+  I acknowledge that my thesis is subject to the rights and obligations stipulated by the Act No. 121/2000 Coll., the Copyright Act, as amended. In accordance with Section 2373(2) of Act No. 89/2012 Coll., the Civil Code, as amended, I hereby grant a non-exclusive authorization (license) to utilize this thesis, including all computer programs that are part of it or attached to it and all documentation thereof (hereinafter collectively referred to as the "Work"), to any and all persons who wish to use the Work. Such persons are entitled to use the Work in any manner that does not diminish the value of the Work and for any purpose (including use for profit). This authorization is unlimited in time, territory and quantity.
 ]
 
 #let abstract-ENG = [
@@ -188,7 +188,7 @@ The three data interchange protocols described in this chapter were selected for
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html#dlpack-an-in-memory-tensor-structure
 // https://data-apis.org/array-api/2025.12/purpose_and_scope.html
 
-Python ecosystem currently offers many libraries that offer implementations of multidimensional arrays. Examples include already mentioned NumPy, Polars and CuPy but also libraries more focused like Pytorch or Tenserflow for deep learning. Most importantly, TNL and it's `NDArray` fits right in as well.
+Python ecosystem currently offers many libraries that offer implementations of multidimensional arrays. Examples include already mentioned NumPy, Polars and CuPy but also libraries more focused like Pytorch or TensorFlow for deep learning. Most importantly, TNL and it's `NDArray` fits right in as well.
 
 While the interfaces often share similarities, as they are frequently inspired by NumPy, the historical standard for numerical computing in Python, their subtle inconsistencies make it difficult to write portable code that can seamlessly operate across multiple libraries.
 
@@ -484,7 +484,7 @@ This allows users to leverage the strengths of different libraries on the same d
 === JIT-compiled operations on arrays
 
 // TODO: Rewrite when the first benchmark results are actually written
-As the benchmarks in @function_calling_from_cpp_benchmark suggests, a big performance bottleneck in executing element-wise operations are the constant crossings of the language boundary, the type conversions, boxing and unboxing of Python objects and rest of the overhead. Now just the inversion of approach and calling the user functions from Python loops instead of #cpp is not a sufficient solution. Function like the one shown @slow_python_map_function still crosses the boundary two times for each element, once when the element is read and once when it is written back. Each time, the `double` value is converted to a Python float object and back. Furthemore, the Python for loop execution itself is simply slower then the equivalent C++ loop.
+As the benchmarks in @function_calling_from_cpp_benchmark suggests, a big performance bottleneck in executing element-wise operations are the constant crossings of the language boundary, the type conversions, boxing and unboxing of Python objects and rest of the overhead. Now just the inversion of approach and calling the user functions from Python loops instead of #cpp is not a sufficient solution. Function like the one shown @slow_python_map_function still crosses the boundary two times for each element, once when the element is read and once when it is written back. Each time, the `double` value is converted to a Python float object and back. Furthermore, the Python for loop execution itself is simply slower then the equivalent C++ loop.
 
 #code1(
   [Element wise mapping using a plain Python loop. Generally low performance both for the Python loop but mainly for the many element accesses that require crossing the language boundary.],
@@ -527,7 +527,7 @@ The `@jit(nopython=True)` decorator (equivalently `@njit`) compiles a Python fun
 
 Note that the function accepts the whole array and contains its own loop. The user has full control over the iteration, indexing, and any conditional logic. This is particularly powerful for operations that do not map cleanly onto existing library primitives --- custom reductions, conditional updates, or any loop-heavy algorithm that would otherwise require dropping into #cpp.
 
-The disadvantage is that the user not only can, but must, write the loop themselves. That looses some of the convinience simple element-wise operations and the original `parallelFor` TNL function.
+The disadvantage is that the user not only can, but must, write the loop themselves. That loses some of the convenience of simple element-wise operations and the original `parallelFor` TNL function.
 
 Still, the key insight is that this allows users to write standard Python code and as will be seen in @benchmark_user_functions_protocol_table, this happens without the usual performance costs associated with Python.
 
@@ -706,7 +706,7 @@ The benchmark measures the same operation --- scaling every element of a $2^21$-
 
 The most important observation is that PyTNL arrays accessed through the protocols perform on par with their native counterparts. Numba `@jit` on a PyTNL host array (0.795 ms) is virtually identical to the same function on a NumPy array (0.810 ms), and both match the NumPy ufunc baseline (0.843 ms). Similarly, `@cuda.jit` on a PyTNL CUDA `NDArray` (0.093 ms) is indistinguishable from the same kernel on a CuPy array (0.094 ms). This confirms that the protocol-based export introduces negligible overhead --- once the buffer reference is handed off, the JIT-compiled code operates on raw memory at the same speed regardless of the originating library.
 
-On the GPU side, the `cuda.jit` results are roughly 9× faster than the CPU baseline, which is expected given the massively parallel nature of the operation and the hardware used. This is further supported by the fact that increasing $N$ does not significantly change the per-iteration time on the GPU, while it does rise lineary on the CPU, confirming the parallel nature of the execution.
+On the GPU side, the `cuda.jit` results are roughly 9× faster than the CPU baseline, which is expected given the massively parallel nature of the operation and the hardware used. This is further supported by the fact that increasing $N$ does not significantly change the per-iteration time on the GPU, while it does rise linearly on the CPU, confirming the parallel nature of the execution.
 
 The `@vectorize` results (1.2--1.3 ms) are somewhat slower than the `@jit` approach, which is consistent with the additional overhead of the ufunc dispatch machinery. Note that in the benchmark, the workaround mentioned in @numba_vectorize_usage was used to achieve in-place mutation. So the slowdown is not caused by extra allocation. Still, the performance different is very slight and seems to be a reasonable tradeoff for the convenience of writing scalar logic without explicit loops.
 
@@ -841,7 +841,7 @@ To illustrate the scale of the problem, @sph_config_h shows how a single variant
 The total number of distinct combinations is:
 $ 2 times 3 times 3 times 1 times 2 times 2 times 2 times 2 = 288 $
 
-Pre-compiling all 288 variants into a single extension module is impractical. CUDA compilation through `nvcc` is slow --- each variant requires processing the entire heavily-templated SPH header hierarchy, and the total build time would be very long. The resulting binary would also be way larger then necessary, and any change to the set of options (adding a new kernel function, for example) would multiply the variant count further.
+Pre-compiling all 288 variants into a single extension module is impractical. CUDA compilation through `nvcc` is slow --- each variant requires processing the entire heavily-templated SPH header hierarchy, and the total build time would be very long. The resulting binary would also be unnecessarily bloated, and any change to the set of options (adding a new kernel function, for example) would multiply the variant count further.
 
 That leaves two choices:
 
