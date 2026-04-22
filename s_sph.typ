@@ -1,5 +1,5 @@
 #import "ctufit-thesis.typ": *
-#let cpp = [C++]
+#let cpp = box[C#h(-0.1em)++\u{2060}]
 
 == TNL-SPH
 
