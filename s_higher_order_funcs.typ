@@ -199,13 +199,18 @@ The trade-off is that `@cfunc` is also much more restrictive. The callable must 
 === Numba CUDA
 
 // https://nvidia.github.io/numba-cuda/
-// TODO: review and rewrite, too aggressive imo
-For GPU execution, Numba also provides a CUDA backend, commonly referred to as Numba-CUDA. Rather than compiling ordinary numerical Python functions for CPU execution, this backend compiles a restricted subset of Python into CUDA kernels and device functions that follow the CUDA execution model. This makes it possible to write GPU kernels in Python syntax, but it also means that the resulting object is fundamentally different from the CPU-side functions discussed above.
+For GPU execution, Numba also provides a CUDA backend, commonly referred to as Numba-CUDA. Unlike the CPU-side decorators discussed above, this backend compiles a restricted subset of Python into CUDA kernels and device functions that follow the CUDA execution model. This makes it possible to write GPU kernels in Python syntax, but it also means that the resulting object is fundamentally different from the CPU-side functions discussed above.
 
-That difference is crucial for this thesis. With CPU Numba, the `@jit` decorator still produces a Python-callable object, and `@cfunc` can produce a host-side function pointer with a conventional scalar signature. A kernel produced by `@cuda.jit` is neither of these. It is a kernel launch object that must be invoked with an explicit grid configuration, and it does not behave like a scalar callback of the form `f(x) -> double`. CUDA kernels also do not return scalar values in the ordinary function sense. Instead, they are launched by host code and write their results into arrays residing in device memory.
+// https://nvidia.github.io/numba-cuda/user/kernels.html
+With CPU Numba, the `@jit` decorator still produces a Python-callable object, and `@cfunc` can produce a host-side function pointer with a conventional scalar signature. A function decorated with `@cuda.jit` is neither of these. It is a kernel launch object, that is, a GPU function meant to be invoked from host code. This has two immediate consequences relevant to PyTNL:
+
+- Kernels cannot directly return values. All results must be written to one or more arrays in device memory passed as arguments, even when the logical result is just a single scalar.
+- Kernels must be launched with an explicit execution configuration, that is, the number of blocks and threads to execute. This configuration is chosen at launch time and different launch sizes do not require recompilation.
+
+The code listing below (@numba_cuda_kernel_launch_example) shows the typical structure of such a launch.
 
 #code1(
-  [A minimal Numba-CUDA kernel launched over a CuPy array. The key difference from CPU Numba is the launch syntax `kernel[blocks, threads](...)` and the fact that the kernel updates device memory instead of returning element values.],
+  [A minimal Numba-CUDA kernel launched over a CuPy array.],
   <numba_cuda_kernel_launch_example>,
   ```python
   import cupy as cp
@@ -224,9 +229,9 @@ That difference is crucial for this thesis. With CPU Numba, the `@jit` decorator
   ```
 )
 
-This is already enough to show why the previous callback-based approach does not carry over to the GPU. The kernel is not something that can be passed through `mapAll` or a similar higher-order binding as if it were just another callable. It requires launch parameters, executes many threads at once, and expresses its results through writes to device arrays rather than through a scalar return value. In other words, the CUDA execution model changes not only how the function is compiled, but also what kind of interface it can meaningfully satisfy.
+These properties mean that the callback-based approach described above for CPU execution does not carry over naturally to the GPU case. A CUDA kernel is not something that can be passed through `mapAll` or a similar higher-order binding as if it were just another callable. Even if the launch configuration were threaded through such an interface, the kernel would still not match the scalar callback shape expected by the binding layer, and it would still need direct access to device memory for both inputs and outputs.
 
-If a GPU-backed container is to interoperate with Numba-CUDA realistically, the correct analogue is therefore not passing a kernel through the existing callback interface, but sharing the underlying GPU memory and launching the kernel over that memory from Python. In practice, this means exposing a device-memory interchange mechanism such as the CUDA Array Interface rather than the ordinary CPU buffer protocol. Once the container exports its device allocation in such a form, Numba-CUDA can consume it without a copy and launch a kernel directly over the shared memory. This is the closest GPU counterpart to the CPU-side `@jit` approach, but an important difference remains: the launch itself stays on the Python side instead of being embedded into the existing native higher-order function interface.
+If a GPU-backed container is to interoperate with Numba-CUDA realistically, the correct analogue is therefore not passing a kernel through the existing callback interface, but sharing the underlying GPU memory and launching the kernel over that memory from Python. This different execution model is explored in the next chapter and, interestingly, turns out to have a close analogue on the CPU side as well.
 
 == NVRTC <nvrtc_introduction>
 
