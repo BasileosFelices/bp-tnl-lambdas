@@ -13,7 +13,7 @@ TNL-SPH @halada2025tnlsph is an open-source SPH implementation developed as a su
 
 The existing examples already ship with Python scripts that prepare the simulation configuration, run the simulation, and post-process the results. That makes TNL-SPH an ideal demonstration case for this work. If the whole user flow could be moved to Python --- with no manual compilation step and no subprocess launching --- that would be a significant improvement in the user experience and accessibility of the library.
 
-=== PyTNL goals - workflow
+=== PyTNL goals -- workflow
 
 ==== Current workflow <sph_current_workflow>
 
