@@ -1,5 +1,5 @@
 #import "ctufit-thesis.typ": *
-#let cpp = box[C#h(-0.1em)++\u{2060}]
+#import "@preview/dashy-todo:0.1.3": todo
 
 = Higher order functions and just-in-time compilation
 
@@ -67,7 +67,7 @@ This is particularly useful for higher-order interfaces such as `parallelFor`. T
 
 This ability to combine executable logic with state prepared in the surrounding scope is one of the main reasons why lambda-based higher-order interfaces are so practical in modern #cpp.
 
-== PyTNL and Nanobind
+== PyTNL and Nanobind <pytnl_nanobind_callbacks>
 
 // https://nanobind.readthedocs.io/en/latest/functions.html#higher-order-functions
 // https://nanobind.readthedocs.io/en/latest/exchanging.html
@@ -192,20 +192,65 @@ The standard entry point to Numba is the `@jit` decorator. It marks a Python fun
 
 For performance-oriented use, the most important mode is Numba's so-called nopython mode. In this mode, the compiled region operates entirely on native values and no longer relies on the Python interpreter while running. The `@njit` decorator is the conventional spelling for this usage and corresponds to `@jit(nopython=True)`. For this thesis, `@jit`/`@njit` were the most natural first experiment because they preserve the most ergonomic programming model: the user still writes a normal Python function and can invoke it from Python almost as usual, while hoping that the hot loop itself will run at native speed.
 
-This makes `@jit` and `@njit` particularly suitable for the scenario where the user supplies a whole-array routine rather than a per-element callback. If PyTNL data can be exposed through a standard memory interchange mechanism, Numba can compile a function that iterates over that memory directly. In such a design, the interpreter would be crossed only to enter the compiled function, not once per processed element. That is a fundamentally more promising execution model than repeatedly invoking a Python callable from inside a native TNL loop.
+What remains however is that the resulting function remains a Python object that doesn't directly expose the compiled code to the #cpp side. It can be passed through nanobind as a callback, but calling it still requires the Python interpreter and the data still must be transformed to Python data types. The JIT compilation therefore only speeds up the actual execution of the callback body. 
 
-// TODO: Insert prepared `@jit` / `@njit` example showing a loop-heavy Python function and note whether you want to use `@jit` explicitly or present `@njit` as the preferred spelling from the outset.
+#code1(
+  [Example of a callback Python function decorated with `@jit` in nopython mode.],
+  <numba_jit_example>,
+```python
+import numpy as np
+from numba import njit
+
+FACTOR = 2.0
+
+@jit(nopython=True)
+def _nb_jit_double(x: float) -> float:
+    return x * FACTOR
+
+vec = bpcode.DoubleVector([1.0, 2.0, 3.0, 4.0, 5.0])
+vec.mapAll_stdfunc(_nb_jit_double)
+assert vec == [2.0, 4.0, 6.0, 8.0, 10.0]
+```,
+)
 
 === Numba `@cfunc`
 
-The `@cfunc` decorator serves a different purpose. Instead of producing a Python-callable function that happens to execute compiled code internally, it generates a native callback with an explicit C-compatible signature. The signature must be specified up front, and the resulting object exposes both a callable wrapper and, more importantly for interoperability, the address of the compiled function. This makes `@cfunc` interesting precisely in situations where a foreign library expects a raw function pointer rather than a Python object.
+The `@cfunc` decorator serves a different purpose. Instead of producing a Python-callable function that happens to execute compiled code internally, it generates a native callback with an explicit C-compatible signature. The signature must be specified up front, and the resulting object exposes both a callable wrapper and, more importantly for interoperability, the address of the compiled function. This makes `@cfunc` very interesting as using the pointer directly could completely sidestep Python and offer a path to native callback performance.
 
-From the perspective of PyTNL higher-order functions, this looks much closer to the native #cpp callback model. If a bound function can be adapted to accept a function pointer with a matching signature, then the callback no longer needs to be re-entered through Python on every invocation. In principle, this eliminates exactly the repeated interpreter dispatch that made nanobind-based Python callbacks unsuitable for fine-grained element-wise execution.
+From the perspective of PyTNL, yet another binding must be exposed to accommodate the `@cfunc` interface. It could either directly accept the pointer as a raw integer or it can still accept the whole Python object and extract the pointer on the #cpp side. That gives a similar user interface as users can still write a normal Python function, decorate it with `@cfunc`, and pass it to the PyTNL method as if it were just another Python callback.
 
-The trade-off is that `@cfunc` is also much more restrictive. The callable must follow an explicitly declared low-level signature, and any state that would normally be captured by a Python closure has to be represented in some more explicit form. In other words, `@cfunc` offers a path that is potentially much closer to native callback performance, but it does so by moving away from the full flexibility of ordinary Python callables. That trade-off is central to the evaluation later in this chapter.
 
-// TODO: Insert prepared `@cfunc` example together with the exact callback signature used by the PyTNL benchmark bindings.
 
+
+#code1(
+  [Example of a binding accepting a Numba `@cfunc` object. The function pointer is extracted from the `.address` attribute and cast to the matching native signature. The GIL is released for the duration of the loop.],
+  <nanobind_cfunc_binding_example>,
+  ```cpp
+  #include <nanobind/nanobind.h>
+
+  namespace nb = nanobind;
+
+  NB_MODULE(my_module, m) {
+      nb::class_<DoubleVector>(m, "DoubleVector")
+          ...
+          .def("forAll_cfunc",
+              [](DoubleVector &self, nb::object cfunc) {
+                  auto fp = reinterpret_cast<double(*)(double)>(
+                      nb::cast<uintptr_t>(cfunc.attr("address")));
+                  {
+                      nb::gil_scoped_release release;
+                      for (double &x : self.data) {
+                          x = fp(x);
+                      }
+                  }
+              }, nb::arg("f"),
+              "Call f(x) for every element x via a raw C function pointer "
+              "extracted from a Numba @cfunc object.");
+  }
+  ```,
+)
+
+The trade-off is that `@cfunc` is also much more restrictive. The callable must follow an explicitly declared low-level signature, and as the callback is exposed purely as a raw C pointer, it looses lot of the safeties and all the pretty error messages. For example Numba normally catches and handles any exceptions like `ZeroDivisionError`.
 
 === Numba CUDA <numba_cuda_introduction>
 
@@ -417,7 +462,17 @@ Using `nvcc` to dynamically compile code at runtime is further explored in @sph_
 
 == Benchmark <function_calling_from_cpp_benchmark>
 
+#todo[Maybe the section could be moved before NVRTC as it doesn't reference it. Yet it does reference the Numba. Numba-cuda however should be close by to the NVRTC... So the numba-cuda and the nvrtc could be moved below together as some kind of GPU section?]
 
+Taking a step back from the kernels and runtime compilation, this section describes a benchmark designed to measure the performance of different approaches of passing user callbacks from Python to #cpp as originally described in @pytnl_nanobind_callbacks. The goal is to determine if the approach could eventually be close enough to desired native performance of standalone TNL code and if not, where the main bottlenecks are. 
+
+Note that as was explored, GPU execution is not really feasibly with this callback model, the benchmark shows only CPU and purely sequential execution. 
+
+The scenarios also do not run on actual PyTNL containers, but on a custom `DoubleVector` class, simple wrapper of `std::vector<double>`. It exposes different methods that apply a user defined operation to each element of the vector. In the first scenario, the operation is a simple multiplication by 2.0. Benchmark compares all the approaches described in @pytnl_nanobind_callbacks and expand them with JIT-compiled Numba variants of the operation. All the JIT variants are warmed up before the benchmark so the timings do not include the compilation time.
+
+For completeness, it also shows a couple of baseline cases. Python list which is chosen as a timing baseline is a pure Python list and for loop multiplying each element by two. The `Python DoubleVector` uses `__get_item__` and `__setitem__` to allow the same Python code to run on the custom class. The `NumPy *= 2.0` case uses NumPy arrays and vectorized multiplication. The `C++ multiplyAll` case is a native #cpp method that multiplies each element by two without any callback.
+
+Results of the first scenario are shown in the @benchmark_scenario_a_table below.
 
 #figure(
   table(
@@ -444,6 +499,14 @@ Using `nvcc` to dynamically compile code at runtime is further explored in @sph_
   ],
 ) <benchmark_scenario_a_table>
 
+Right away, it is clear the the callbacks, with the exception of Numba's `@cfunc`s, are not competitive with the native approaches. They are in fact even slower then the pure Python list iteration, which is the first strong indication the binding overhead and language boundary crossings cause a significant slowdown and the issue is not necessarily the execution speed (i.e., the Python interpreting speed) of the callback body. 
+
+The cases using Numba JIT-compiled functions through `mapAll` methods further confirm this as, surprisingly, they are even slower than the pure Python callbacks. The execution time of the JIT-compiled function itself should very much compete with the native `multiplyAll` method and the fact that the `@cfunc` variants do indeed reach same order of magnitude confirms that. If the bottleneck isn't the callback execution itself, it leaves just the overhead of crossing the data across the language boundary each time the function is called.
+
+It would even explain why the JIT compiled variants are slower then the pure Python callbacks as in them the boundary is in fact crossed twice. The data first cross into Python only to be converted once again into #cpp types for the Numba function. Same thing happens to the return value on the way back.
+
+As last confirmation, the benchmark implements a second scenario with a heavier element-wise compute, namely `sin(x) + cos(x) dot sqrt(|x|+1)`. This should shift the bottleneck more toward the execution of the callback body and away from the language boundary crossing. If that is the case, then the JIT-compiled variants could finally show their advantage and show better relative performance compared to the pure Python callbacks. Results below in the @benchmark_scenario_b_table confirm this. 
+
 #figure(
   table(
     columns: (1fr, auto, auto, auto, auto),
@@ -469,6 +532,12 @@ Using `nvcc` to dynamically compile code at runtime is further explored in @sph_
     Benchmark ran on a PC with Ryzen 3600 CPU in WSL2 environment.
   ],
 ) <benchmark_scenario_b_table>
+
+To end the on a good note, the benchmark also brings a couple of good news. The difference between different binding methods is negligible, which means that the choice between `nb::object`, `nb::callable` and `std::function` can be made based on convenience and flexibility rather than performance. 
+
+And most importantly, the `@cfunc` variants confirm that JIT compilation can indeed bring the performance of Python callbacks much closer to native code and as such is definitely a step in the right direction. In the second scenarios, they are actually on par with the native `heavyComputeAll` method and clearly outperform even the Numpy ufuncs.
+
+Of course, `@cfunc` itself comes with its own limitations and maybe more importantly, doesn't have a natural counterpart in Numba for GPU execution. The next chapter therefore explores an alternative approach that would avoid the repeated language crossings that looks to be the primary bottleneck.  
 
 == Other Python libraries
 
