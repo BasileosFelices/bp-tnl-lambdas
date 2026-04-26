@@ -3,15 +3,39 @@
 
 = Introduction
 
-== CUDA, GPU computations
+== Template Numerical Library
+
+// https://doi.org/10.14311/AP.2021.61.0122
+The Template Numerical Library (TNL) is a #cpp library for numerical simulations that aims to combine high computational efficiency with a user-friendly and consistent programming interface. Its design targets modern parallel hardware, including multi-core CPUs, GPUs, and distributed-memory systems, while avoiding the overheads that often follow from traditional object-oriented abstractions. Instead, TNL relies on #cpp templates and their specialization mechanisms to generate architecture-specific code at compile time, making it possible to keep a unified interface without sacrificing performance.
+
+This design is particularly important for GPU computing, where efficient implementations require careful control over memory layout, data transfer, and parallel execution patterns. In many numerical applications, especially those involving sparse matrices, iterative solvers, or mesh-based discretizations, adapting algorithms to accelerators is not a minor extension but a substantial redesign. TNL addresses this difficulty by providing data structures and algorithms that are implemented with these architectural differences already in mind.
+
+=== Arrays and NDArrays
+
+Arrays are basic data structures for memory management in TNL and they are the main focus of this thesis. They rely on template parameters not just for the data type but also for the Device on which the data is stored. This design provides consistent interface although the underlying memory management differs significantly between CPU and GPU. The differences however still surface from time to time, not all methods are available for all devices and as will be explored in later chapters, different approaches may be required to support the same feature on different device.
+
+NDArrays are a higher-level abstraction built on top of classic arrays that provide nicer interface for multi-dimensional data. While the examples in this work often show just one-dimensional arrays for simplicity, the goal in all cases is full support for these multi-dimensional structures. As multi-dimensional arrays are the primary data structures in most Python numerical libraries, and supporting them is a key requirement if PyTNL is to be a useful tool for Python users.   
+
+== PyTNL
+
+Speaking of it, PyTNL is a Python binding layer for selected TNL components. PyTNL aims to use TNL's effective backend and following the original focus on user experience, provide even more accessible interface that uses Python's expressiveness and convenience. As of beginning of 2026, PyTNL is still under active development and the set of exported features is still evolving. The focused arrays and NDArrays are already available. 
+
+=== Nanobind
+
+For the bindings, PyTNL relies on nanobind, small binding library for exposing #cpp types in Python and vice versa. It's goal is to be a modern and efficient, maybe bit opinionated, alternative to more established pybind11 or Boost.Python. According to authors, nanobind compiles in a shorter amount of time, produces smaller libraries and has better runtime performance.
+
+What may prove challenging is that as part of it's philosophy, nanobind does not intend to be be usable for #cpp codebases and instead focuses on providing clean and efficient bindings just for a smaller #cpp subset. The philosophy explicitly states: The codebase has to adapt to the binding tool and not the other way around. Next chapter will explore how fitting match TNL is and if nanobind's design may impose some limitations on the features current TNL can expose to Python.
 
 // http://hdl.handle.net/10467/116916
-=== Compute Unified Device Architecture
+== Compute Unified Device Architecture
+
+#todo[Heavily derived or directly copied from http://hdl.handle.net/10467/116916. Is that ok if cited?]
 
 The Compute Unified Device Architecture (CUDA) is a proprietary and closed-source parallel computing platform and an application programming interface (API) developed by the NVIDIA Corporation that allows software to use GPUs for general-purpose programming (GPGPU). C, C++, Python, and Fortran programming languages are compatible with the CUDA, making it easy to access parallel architecture resources.
 
 ==== Thread hierarchy
 
+// http://hdl.handle.net/10467/116916
 The CUDA architecture comprises a hierarchical structure that includes threads, blocks, and grids, which facilitates parallel computation:
 
 - *Threads* in CUDA are the smallest units of execution. Each thread executes an instance of a kernel function, which is a function written to run on the GPU. Threads operate concurrently, performing computations on different pieces of data. Key characteristics of CUDA threads include:
@@ -55,60 +79,23 @@ kernelFunction<<< numBlocks, numThreadsPerBlock >>>( parameters );
 Here in the example code block, the name of the CUDA kernel kernelFunction is specified, followed by the <<< ... >>> execution syntax, where the number of available thread blocks and threads per block are specified.
 
 // TODO: fact check and maybe rewrite the ending 
+// https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/nvcc.html
 === Compiler infrastructure
 
-// Sources:
-// https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#purpose-of-nvcc
-The NVIDIA CUDA compiler stack is best understood as a layered infrastructure rather than as a single compiler. At the top stands `nvcc`, which is primarily a compiler driver. Its task is to orchestrate preprocessing, invoke the host compiler for ordinary C++ code, invoke NVIDIA's device-side compilation stages for CUDA kernels, and package the resulting device images together with the host object code. For offline builds, `nvcc` is therefore the main entry point, but much of the actual translation work is delegated to lower-level components.
+To utilize GPU with a library like TNL, the code has to be compiled with a compatible compiler that can generate GPU code. The NVIDIA CUDA Compiler (`nvcc`) is a typical entry point for compilation of CUDA C/#cpp code as well as parallel thread execution (PTX) assembly code. Compared to traditional compilers, `nvcc` itself is more of a driver that orchestrates the whole compilation process. 
 
-// Sources:
-// https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#cuda-sources
-// https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#the-cuda-compilation-trajectory
-A CUDA source file typically contains both host code and device code. During compilation, `nvcc` preprocesses the translation unit for device compilation, extracts the device-relevant parts, and compiles them into PTX and/or a device binary (`cubin`). It then preprocesses the source again for host compilation, rewrites CUDA-specific constructs such as kernel launch syntax into ordinary host-side runtime calls, embeds the produced device images into a fatbinary, and forwards the generated host-side source to a conventional C++ compiler such as `g++` or `clang++`. In this sense, `nvcc` does not replace the host compiler; it coordinates the host toolchain with NVIDIA's device compiler.
+Source files compiled with `nvcc` can contain both host code, executed on the CPU, and device code, executed on the GPU. In the initial phase, `nvcc` separates the targets and dispatches their compilation  to the GPU and the host compilers, respectively. For host code, `nvcc` invokes a standard C/#cpp compiler (like `g++`), which needs to be present and accessible on the system. Pure host code is compiled directly, and the calls to GPU code are linked at link-time. 
 
-// Sources:
-// https://docs.nvidia.com/cuda/nvvm-ir-spec/index.html#introduction
-// https://docs.nvidia.com/cuda/libnvvm-api/index.html#introduction
-// https://docs.nvidia.com/cuda/libnvvm-api/index.html#compilation
-Between the CUDA front end and the PTX stage lies NVVM. `NVVM IR` is NVIDIA's LLVM-based intermediate representation for GPU programs. This layer is important because it decouples the high-level CUDA language front end from the PTX back end and enables analysis, verification, optimization, and link-time transformations on a machine-independent representation. The `libNVVM` interface accepts NVVM IR modules, links them at the IR level, and compiles the resulting program to PTX. Device code can also be matched with auxiliary device libraries at this stage, such as the `libdevice` implementations of mathematical routines. One can therefore say that the CUDA front end is responsible for understanding CUDA C++ syntax and semantics, while NVVM takes over once the program has been lowered to NVVM IR and performs the main middle-end and PTX code-generation work.
+The GPU compilation process compiles #cpp device code into PTX assembly in two steps. First, the code is compiled by the compiler front-end into NVVM IR, an intermediate representation that abstracts away the original source language. Then, it the NVVM, LLVM based, compiler generates the PTX, low-level assembly language containing GPU instructions. This can be done multiple times for each desired virtual instruction set architecture, possibly resulting in multiple PTX files. 
 
-// Sources:
-// https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#gpu-compilation
-// https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#just-in-time-compilation
-// https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#fatbinaries
-// https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#ptxas-options
-PTX itself is still not final machine code; it is a virtual instruction set architecture that describes code for a virtual GPU architecture such as `compute_80`. From PTX, the `ptxas` assembler produces architecture-specific machine code for a concrete target such as `sm_80`, stored in a `cubin`. This two-stage model is central to CUDA compatibility: a fatbinary may contain several precompiled cubins for known architectures together with PTX for forward compatibility. At program startup or kernel launch, the CUDA runtime or driver selects the most suitable embedded image; if no matching cubin is available, it can just-in-time compile the PTX for the actual GPU.
+The PTX files are then passed to `ptxas` tool, which generates the final GPU binary code (`cubin`) for specific hardware. This can once again be done multiple times for different targets. Finally, all these targets can be embedded into a single fat binary to support a range of GPU architectures. 
 
-// Sources:
-// https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#using-separate-compilation-in-cuda
-// https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#nvcc-options-for-separate-compilation
-// https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#dlink-time-opt
-For multi-file programs, the device path can include one more stage, namely `nvlink`, the device linker. In whole-program mode, executable device code is embedded directly into host objects. In separate-compilation mode (`-rdc=true`), host objects instead carry relocatable device code, and `nvlink` resolves device-side references across translation units before the final host link step. A related optimization mode is device link-time optimization (`-dlto`), where higher-level intermediate code is preserved until link time so that cross-file optimization can still be performed before final code generation.
+#figure(
+    caption: [`nvcc` compilation workflow with multiple PTX and Cubin architectures.],
+    image("assets/nvcc_execution.png")
+) <nvcc_compilation_diagram>
 
-// Sources:
-// https://docs.nvidia.com/cuda/nvrtc/index.html#introduction
-// https://docs.nvidia.com/cuda/nvrtc/index.html#language
-// https://docs.nvidia.com/cuda/nvrtc/index.html#compilation
-// https://docs.nvidia.com/cuda/nvrtc/index.html#example-device-lto-link-time-optimization
-Besides `nvcc`, NVIDIA also provides `NVRTC`, a runtime compilation library. Unlike `nvcc`, `NVRTC` is intended for just-in-time compilation inside an application and compiles only device CUDA C++ code provided as source strings; it does not compile host code. Its outputs are typically PTX, cubin, or LTO IR, which can then be loaded by the CUDA driver or linked further with tools such as `nvJitLink`. Consequently, `nvcc`, `NVRTC`, `NVVM`, `ptxas`, and `nvlink` should be viewed as cooperating layers of one compiler infrastructure rather than as interchangeable tools.
-
-== Introduction to TNL
-
-The Template Numerical Library (TNL) is a #cpp library for numerical simulations that aims to combine high computational efficiency with a user-friendly and consistent programming interface. Its design targets modern parallel hardware, including multi-core CPUs, GPUs, and distributed-memory systems, while avoiding the overheads that often follow from traditional object-oriented abstractions. Instead, TNL relies on #cpp templates and their specialization mechanisms to generate architecture-specific code at compile time, making it possible to keep a unified interface without sacrificing performance.
-
-This design is particularly important for GPU computing, where efficient implementations require careful control over memory layout, data transfer, and parallel execution patterns. In many numerical applications, especially those involving sparse matrices, iterative solvers, or mesh-based discretizations, adapting algorithms to accelerators is not a minor extension but a substantial redesign. TNL addresses this difficulty by providing data structures and algorithms that are implemented with these architectural differences in mind, while still presenting a coherent programming model to the user.
-
-More broadly, TNL aims to offer a wider and more coherent environment for #cpp high-performance computing than narrowly specialized libraries. It combines support for common parallel patterns, linear algebra operations, sparse matrices, and numerical solvers under a unified templated interface inspired by the #cpp standard library. This emphasis on consistency and abstraction naturally opens the way to higher-level interfaces that improve usability without giving up the performance advantages of the original library.
-
-== PyTNL
-
-One such interface is PyTNL, a Python binding layer for selected TNL components. PyTNL brings TNL into Python-driven workflows, where the convenience and expressiveness of Python can be combined with performance-critical kernels implemented in compiled backends. In this sense, PyTNL can be seen as a further extension of TNL's original focus on user experience: it does not replace the underlying high-performance #cpp library, but makes its selected building blocks more accessible for prototyping, orchestration of numerical workflows, and interoperability with other tools in the Python scientific ecosystem.
-
-At the same time, PyTNL is still under active development and its interface is not yet final. The currently available bindings expose only selected parts of TNL, and the exact set of supported classes and functions may evolve over time. This makes PyTNL both a practical tool and a research opportunity: it already enables useful Python-facing workflows, but it also raises open questions about how far a performance-oriented templated #cpp library can be exposed in a way that remains both efficient and convenient to use.
-
-This thesis focuses on that problem. Its goal is not only to extend PyTNL with additional bindings, but mainly to explore how more advanced TNL abstractions can be made available from Python, especially higher-order operations that in native TNL rely on #cpp lambda functions. A particularly attractive objective is to allow users to express custom computation in Python while still executing performance-critical parts through efficient compiled mechanisms. The central challenge is therefore to improve the user experience of TNL-based workflows without turning the Python interface into a thin but slow wrapper over the original library.
-
-To address this challenge, the thesis examines multiple approaches to crossing the language boundary between Python and #cpp. It first considers direct invocation of Python callables from the native side, then evaluates just-in-time compilation techniques and data interchange protocols that make it possible to operate on TNL-managed memory more directly from Python. These ideas are finally discussed in the context of practical workflows, including the TNL-SPH solver, where improving accessibility and reducing the amount of required boilerplate can significantly enhance the overall usability of the library.
+`nvcc` coordinates this entire process, usually hiding the complexity from it's user. However, when it comes to Just-in-time compilation in later chapters, it may be useful to understand the underlying phases as it's not strictly required to always go through all of them. 
 
 == Similar libraries
 

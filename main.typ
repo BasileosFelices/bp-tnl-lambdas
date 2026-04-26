@@ -1,5 +1,6 @@
 #import "ctufit-thesis.typ": *
 #import "@preview/fletcher:0.5.7" as fletcher: diagram, edge, node
+#import "@preview/dashy-todo:0.1.3": todo
 
 #let cpp = box[C#h(-0.1em)++\u{2060}]
 
@@ -40,8 +41,8 @@
   acknowledgment: acknowledgment,
   abstract-CZE: abstract-CZE,
   abstract-ENG: abstract-ENG,
-  keywords-CZE: "TODO",
-  keywords-ENG: "TODO",
+  keywords-CZE: "TNL, PyTNL, CUDA, Python, C++, Just-in-time kompilace, Nanobind, Numba, Buffer protocol, DLpack, SPH, TNL-SPH, higher-order functions",
+  keywords-ENG: "TNL, PyTNL, CUDA, Python, C++, Just-in-time compilation, Nanobind, Numba, Buffer protocol, DLpack, SPH, TNL-SPH, higher-order functions",
   thesis-type: "bachelor",
   lang: "english",
   twosided: false,
@@ -98,91 +99,29 @@
 
 == PDLP Solver
 
+#todo(position: "inline")[How to include PDLP. It doesn't really tie in with the rest of the thesis, maybe try CVXPy and show the compatibility?]
+
+= Julia TNL bindings
 
 
-= Julia ?
+== Native capabilities
+
+// https://docs.julialang.org/en/v1/manual/calling-c-and-fortran-code/#Calling-C-and-Fortran-Code
 
 == Bindings libraries
+
+=== CBinding.jl
+
+=== Cxx.jl
+
+=== CxxWrap.jl
+
+== PythonCall
+
+// https://juliapy.github.io/PythonCall.jl/stable/pythoncall/
+
+// https://piembsystech.com/calling-python-code-with-pycall-in-julia-programming-language/
 
 == C like performance
 
 == JIT
-
-
-// = Theory
-
-// == TNL
-
-// === Data structures
-
-// === Higher-order functions
-
-// == PyTNL
-
-// === Capabilities, what I am going to handle
-
-// == Python Buffer Protocol
-
-// == Cuda array interface
-
-// ==
-
-// = Lambda functions at the \ language barrier
-
-// PyTNL as a Python interface for TNL library provides bindings for the original #cpp code.
-
-// = Dynamic compiling of lambda functions
-
-// intro
-
-// == Lambda functions in TNL
-
-// TNL exposes several useful higher order functions that extends users options for modifying the TNl data structures using their own lambda functions. Thanks to context capturing and working with #cpp iterators, they provide a fairly powerful API. One such example might be the `ParallelFor` function.
-
-// === #cpp lambda functions
-
-// // TODO: quick c++ overview of lambda functions
-
-// === Python lambda functions
-
-// // TODO: quick python lambda function overview
-
-// == Nanobind
-
-// === Type casting std::function
-
-// === Wrapping nb::callable
-
-
-
-// === Utilizing python lambda functions in PyTNL
-
-// The goal is reasonably simple from the API perspective. PyTNL should allow users to write some kind of lambda functions and allow executing them upon PyTNL exposed data structures. Ideally we would expose already existing higher order functions from TNL.
-
-// The main challenge of binding a higher order function such as `ParallelFor` is the ability to pass a Python Lambda function into
-
-// Binding a higher order function such as `ParallelFor` faces two big challenges:
-
-// + Passing a Python Lambda function into the #cpp codebase and executing it from there.
-// + Allowing the context capture. As above, we would be capturing Python objects and subsequently passing them once again into the #cpp runtime.
-
-
-
-// == Tools
-
-
-// === Numba
-
-// To battle the performance issues of Python code, I tried to explore JIT compilation options. If we could precompile the python lambdas and separate it from the interpreter, we could achieve significant speed increase.
-// // TODO some source showing JIT in Numba actually speeds something up.
-
-// However, even JIT Numba precompiled functions are still passed through the bindings as a Python object and is still pretty slow.
-
-// I had to eliminate Python all together and that was possible with numbas Cfuncs. The bindings had to be adjusted to accept a pointer straight to the function instead of `nb::callable`. This truly did speed things up. However two problems remained. Context capture sucked and even more so, this function could only be executed by the CPU. In order to run the code on device, we would need a differently compiled kernel.
-
-// === Numba CUDA
-
-// And that's where Numba CUDA was supposed to come in. However, I quickly discovered cuda has no cfunc equivalent. And Numba CUDA functions could not be passed by pointers to the bindings.
-// // TODO: What about nb::callable???
-
-// === Cupy, Cuda CORE - NRVTC
