@@ -537,17 +537,4 @@ To end the on a good note, the benchmark also brings a couple of good news. The 
 
 And most importantly, the `@cfunc` variants confirm that JIT compilation can indeed bring the performance of Python callbacks much closer to native code and as such is definitely a step in the right direction. In the second scenarios, they are actually on par with the native `heavyComputeAll` method and clearly outperform even the Numpy ufuncs.
 
-Of course, `@cfunc` itself comes with its own limitations and maybe more importantly, doesn't have a natural counterpart in Numba for GPU execution. The next chapter therefore explores an alternative approach that would avoid the repeated language crossings that looks to be the primary bottleneck.  
-
-== Other Python libraries
-
-=== CuPy
-
-=== Polars
-
-// https://docs.pola.rs/user-guide/expressions/user-defined-python-functions/#processing-a-whole-series-with-map_batches
-
-=== NumPy
-
-// TODO: mention inspiration from some libraries described above?
-=== JAX
+Of course, `@cfunc` itself comes with its own limitations and maybe more importantly, doesn't have a natural counterpart in Numba for GPU execution. The next chapter therefore explores an alternative approach that would avoid the repeated language crossings that looks to be the primary bottleneck.
