@@ -192,7 +192,7 @@ The standard entry point to Numba is the `@jit` decorator. It marks a Python fun
 
 For performance-oriented use, the most important mode is Numba's so-called nopython mode. In this mode, the compiled region operates entirely on native values and no longer relies on the Python interpreter while running. The `@njit` decorator is the conventional spelling for this usage and corresponds to `@jit(nopython=True)`. For this thesis, `@jit`/`@njit` were the most natural first experiment because they preserve the most ergonomic programming model: the user still writes a normal Python function and can invoke it from Python almost as usual, while hoping that the hot loop itself will run at native speed.
 
-What remains however is that the resulting function remains a Python object that doesn't directly expose the compiled code to the #cpp side. It can be passed through nanobind as a callback, but calling it still requires the Python interpreter and the data still must be transformed to Python data types. The JIT compilation therefore only speeds up the actual execution of the callback body. 
+What remains however is that the resulting function remains a Python object that does not directly expose the compiled code to the #cpp side. It can be passed through nanobind as a callback, but calling it still requires the Python interpreter and the data still must be transformed to Python data types. The JIT compilation therefore only speeds up the actual execution of the callback body. 
 
 #code1(
   [Example of a callback Python function decorated with `@jit` in nopython mode.],
@@ -250,7 +250,7 @@ From the perspective of PyTNL, yet another binding must be exposed to accommodat
   ```,
 )
 
-The trade-off is that `@cfunc` is also much more restrictive. The callable must follow an explicitly declared low-level signature, and as the callback is exposed purely as a raw C pointer, it looses lot of the safeties and all the pretty error messages. For example Numba normally catches and handles any exceptions like `ZeroDivisionError`.
+The trade-off is that `@cfunc` is also much more restrictive. The callable must follow an explicitly declared low-level signature, and as the callback is exposed purely as a raw C pointer, it loses many safety features and all the pretty error messages. For example Numba normally catches and handles any exceptions like `ZeroDivisionError`.
 
 === Numba CUDA <numba_cuda_introduction>
 
@@ -303,9 +303,9 @@ NVRTC addresses both of these issues by providing a library interface to the CUD
 // https://developer.nvidia.com/cuda/python
 // https://nvidia.github.io/cuda-python/13.1.1/index.html
 // https://nvidia.github.io/cuda-python/cuda-bindings/13.1.1/
-The compiler itself is distributed as a #cpp library to be invoked from #cpp code. However, several Python bindings to NVRTC already exist. NVIDIA itself maintains a couple of them under it's CUDA Python libraries. The most direct and low level binding is offered through the `cuda.bindings` module of the `cuda-python` package. It provides almost a one-to-one mapping of the NVRTC API, allowing users to manage the entire compilation and linking process from Python themselves.
+The compiler itself is distributed as a #cpp library to be invoked from #cpp code. However, several Python bindings to NVRTC already exist. NVIDIA itself maintains a couple of them under its CUDA Python libraries. The most direct and low level binding is offered through the `cuda.bindings` module of the `cuda-python` package. It provides almost a one-to-one mapping of the NVRTC API, allowing users to manage the entire compilation and linking process from Python themselves.
 
-As the code snippet below (@nvrtc_cuda_bindings_example) shows, the complete control over the process is a tradeoff that costs a of convenience and requires good understanding the NVRTC API. To launch the CUDA kernel, the user must also manually load the resulting PTX code into a CUDA module, retrieve the kernel function, prepare device memory, copy the data into it and finally launch it with valid configuration.
+As the code snippet below (@nvrtc_cuda_bindings_example) shows, the complete control over the process is a tradeoff that costs a lot of convenience and requires good understanding the NVRTC API. To launch the CUDA kernel, the user must also manually load the resulting PTX code into a CUDA module, retrieve the kernel function, prepare device memory, copy the data into it and finally launch it with valid configuration.
 
 #code1(
   [Example of using `cuda.bindings` to compile a #cpp string in the `saxpy` variable into a launchable CUDA kernel.],
@@ -407,7 +407,7 @@ Similarly to the Numba-CUDA case, no matter the library or abstraction used, the
 
 === Runtime compilation of TNL Higher-order functions
 
-Failures to achieve native performance and GPU execution through callbacks led to a more adventurous idea: what if the runtime compiler was used to compile the entire TNL higher-order function itself, with the user definition baked directly into its body before compilation? On the surface, this appeared to offer the full power of TNL higher-order interfaces while preserving native performance. The user would provide custom logic as a #cpp string, select the desired TNL function, and the compiler would generate a callable function at runtime.
+Failures to achieve native performance and GPU execution through callbacks led to an alternative hypothesis: what if the runtime compiler was used to compile the entire TNL higher-order function itself, with the user definition baked directly into its body before compilation? On the surface, this appeared to offer the full power of TNL higher-order interfaces while preserving native performance. The user would provide custom logic as a #cpp string, select the desired TNL function, and the compiler would generate a callable function at runtime.
 
 In the end, however, this proved to be a rather naive approach. Even if the runtime compiler managed to compile arbitrary user code in this form, the problem of connecting the already compiled PyTNL module to the newly compiled code would remain. Context capture is not available in any practical sense, because the #cpp string cannot refer to existing Python objects. This again reduces the problem to explicit argument passing and to crossing the language boundary without reintroducing interpreter overhead.
 
@@ -533,8 +533,8 @@ As last confirmation, the benchmark implements a second scenario with a heavier 
   ],
 ) <benchmark_scenario_b_table>
 
-To end the on a good note, the benchmark also brings a couple of good news. The difference between different binding methods is negligible, which means that the choice between `nb::object`, `nb::callable` and `std::function` can be made based on convenience and flexibility rather than performance. 
+Finally, the benchmark also yields some positive results. The difference between different binding methods is negligible, which means that the choice between `nb::object`, `nb::callable` and `std::function` can be made based on convenience and flexibility rather than performance. 
 
 And most importantly, the `@cfunc` variants confirm that JIT compilation can indeed bring the performance of Python callbacks much closer to native code and as such is definitely a step in the right direction. In the second scenarios, they are actually on par with the native `heavyComputeAll` method and clearly outperform even the Numpy ufuncs.
 
-Of course, `@cfunc` itself comes with its own limitations and maybe more importantly, doesn't have a natural counterpart in Numba for GPU execution. The next chapter therefore explores an alternative approach that would avoid the repeated language crossings that looks to be the primary bottleneck.
+Of course, `@cfunc` itself comes with its own limitations and maybe more importantly, does not have a natural counterpart in Numba for GPU execution. The next chapter therefore explores an alternative approach that would avoid the repeated language crossings that looks to be the primary bottleneck.

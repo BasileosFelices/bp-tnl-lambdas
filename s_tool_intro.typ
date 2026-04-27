@@ -18,13 +18,13 @@ NDArrays are a higher-level abstraction built on top of classic arrays that prov
 
 == PyTNL
 
-Speaking of it, PyTNL is a Python binding layer for selected TNL components. PyTNL aims to use TNL's effective backend and following the original focus on user experience, provide even more accessible interface that uses Python's expressiveness and convenience. As of beginning of 2026, PyTNL is still under active development and the set of exported features is still evolving. The focused arrays and NDArrays are already available. 
+PyTNL is a Python binding layer for selected TNL components. PyTNL aims to use TNL's effective backend and following the original focus on user experience, provide even more accessible interface that uses Python's expressiveness and convenience. As of beginning of 2026, PyTNL is still under active development and the set of exported features is still evolving. The focused arrays and NDArrays are already available. 
 
 === Nanobind
 
-For the bindings, PyTNL relies on nanobind, small binding library for exposing #cpp types in Python and vice versa. It's goal is to be a modern and efficient, maybe bit opinionated, alternative to more established pybind11 or Boost.Python. According to authors, nanobind compiles in a shorter amount of time, produces smaller libraries and has better runtime performance.
+For the bindings, PyTNL relies on nanobind, small binding library for exposing #cpp types in Python and vice versa. Its goal is to be a modern and efficient, maybe bit opinionated, alternative to more established pybind11 or Boost.Python. According to authors, nanobind compiles in a shorter amount of time, produces smaller libraries and has better runtime performance.
 
-What may prove challenging is that as part of it's philosophy, nanobind does not intend to be be usable for #cpp codebases and instead focuses on providing clean and efficient bindings just for a smaller #cpp subset. The philosophy explicitly states: The codebase has to adapt to the binding tool and not the other way around. Next chapter will explore how fitting match TNL is and if nanobind's design may impose some limitations on the features current TNL can expose to Python.
+What may prove challenging is that as part of its philosophy, nanobind does not intend to be be usable for #cpp codebases and instead focuses on providing clean and efficient bindings just for a smaller #cpp subset. The philosophy explicitly states: The codebase has to adapt to the binding tool and not the other way around. Next chapter will explore how fitting match TNL is and if nanobind's design may impose some limitations on the features current TNL can expose to Python.
 
 == Compute Unified Device Architecture
 
@@ -36,7 +36,7 @@ The Compute Unified Device Architecture (CUDA) is a proprietary and closed-sourc
 === Expected heterogeneous system
 
 // https://docs.nvidia.com/cuda/cuda-programming-guide/01-introduction/programming-model.html
-The CUDA programming model isn't strictly about GPU execution, in fact it assumes a heterogeneous system where the CPU (host) and GPU (device) work together. Both CPU and GPU have their own memory spaces called _host memory_ and _device memory_, respectively. In some systems, the memory may be unified and conversely some systems may have multiple GPUs or even CPUs, each with their own memory space, but for simplicity, the works only considers the most common case of a single CPU and a single GPU with separate memory spaces.
+The CUDA programming model is not strictly about GPU execution, in fact it assumes a heterogeneous system where the CPU (host) and GPU (device) work together. Both CPU and GPU have their own memory spaces called _host memory_ and _device memory_, respectively. In some systems, the memory may be unified and conversely some systems may have multiple GPUs or even CPUs, each with their own memory space, but for simplicity, the works only considers the most common case of a single CPU and a single GPU with separate memory spaces.
 
 CUDA applications execute code on the GPU but they always start on the CPU. Code running on the CPU is called host code and typically handles the orchestration of the application, memory transfers, starting GPU execution and processing the results of it. 
 
@@ -74,7 +74,7 @@ The PTX files are then passed to `ptxas` tool, which generates the final GPU bin
     image("assets/nvcc_execution.png")
 ) <nvcc_compilation_diagram>
 
-`nvcc` coordinates this entire process, usually hiding the complexity from it's user. However, when it comes to Just-in-time compilation in later chapters, it may be useful to understand the underlying phases as it's not strictly required to always go through all of them. 
+`nvcc` coordinates this entire process, usually hiding the complexity from its user. However, when it comes to Just-in-time compilation in later chapters, it may be useful to understand the underlying phases as it is not strictly required to always go through all of them. 
 
 == Similar libraries
 

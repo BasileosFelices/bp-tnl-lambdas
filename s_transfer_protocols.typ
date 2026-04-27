@@ -17,7 +17,7 @@ The three data interchange protocols described in this chapter were selected for
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html#dlpack-an-in-memory-tensor-structure
 // https://data-apis.org/array-api/2025.12/purpose_and_scope.html
 
-Python ecosystem currently offers many libraries that offer implementations of multidimensional arrays. Examples include already mentioned NumPy, Polars and CuPy but also libraries more focused like Pytorch or TensorFlow for deep learning. Most importantly, TNL and it's `NDArray` fits right in as well.
+Python ecosystem currently offers many libraries that offer implementations of multidimensional arrays. Examples include already mentioned NumPy, Polars and CuPy but also libraries more focused like Pytorch or TensorFlow for deep learning. Most importantly, TNL and its `NDArray` fits right in as well.
 
 While the interfaces often share similarities, as they are frequently inspired by NumPy, the historical standard for numerical computing in Python, their subtle inconsistencies make it difficult to write portable code that can seamlessly operate across multiple libraries.
 
@@ -26,11 +26,11 @@ Python Array API Standard, whose first version released in 2021, attempts to add
 That makes the standard highly relevant both to this work and PyTNL itself. Apart from lowering user's learning curve by making the API more familiar. Adhering to the the standard would allows array-consuming libraries, like Numba, to accept PyTNL array-like data structures and run operations on them directly.
 
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html
-The interoperability can be achieved either by Python's duck typing, or, more importantly, through a data exchange mechanism that would allow converting the arrays into others or expose the underlying data directly. Instead of designing it's own protocol, the standard states requirements, listed in @array_standard_interchange_requirements_table, the protocol should fulfil and recommends an already existing protocol, along with two possible alternatives. All three protocols are described below.
+The interoperability can be achieved either by Python's duck typing, or, more importantly, through a data exchange mechanism that would allow converting the arrays into others or expose the underlying data directly. Instead of designing its own protocol, the standard states requirements, listed in @array_standard_interchange_requirements_table, the protocol should fulfil and recommends an already existing protocol, along with two possible alternatives. All three protocols are described below.
 
 For allowing Numba's JIT compiled functions to execute upon the PyTNL's array, the most important requirement is allowing the zero-copy view. Forcing a copy, be it inside the same memory block or worse, from one device memory to another, would likely once again invalidate all the performance gains the function compilation provides in the first place.
 
-It's of course similarly important to offer multi device support, as the (Py)TNL is built with device support in mind as well. However, this requirement can be be easily circumvented by simply supporting multiple different protocols.
+It is of course similarly important to offer multi device support, as the (Py)TNL is built with device support in mind as well. However, this requirement can be be easily circumvented by simply supporting multiple different protocols.
 
 
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html
@@ -133,10 +133,10 @@ The consumer simply accesses the underlying buffer by the supplied pointer in th
 
 Note that while this allows creation of zero copy views of the data, the interface does not handle ownership transfer or even object's lifetime in any way. The original producer generally remains responsible for the data and their eventual destruction.
 
-The user is also responsible for ensuring the original object's lifetime outlives the view. Some libraries may help the user with this by keeping the reference to the original object. That is however library dependant and is not specified in the standard.
+The user is also responsible for ensuring the original object's lifetime outlives the view. Some libraries may help the user with this by keeping the reference to the original object. That is however library dependent and is not specified in the standard.
 
 // https://docs.cupy.dev/en/stable/reference/generated/cupy.asarray.html#cupy.asarray
-For example, CuPy holds the reference after construting the object with `asarray` function only if the original has been a CuPy array as well. Numba itself provides two different options for constructing the view. One holds the reference, the other does not.
+For example, CuPy holds the reference after constructing the object with `asarray` function only if the original has been a CuPy array as well. Numba itself provides two different options for constructing the view. One holds the reference, the other does not.
 
 #figure(
   table(
