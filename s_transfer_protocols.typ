@@ -17,20 +17,20 @@ The three data interchange protocols described in this chapter were selected for
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html#dlpack-an-in-memory-tensor-structure
 // https://data-apis.org/array-api/2025.12/purpose_and_scope.html
 
-Python ecosystem currently offers many libraries that offer implementations of multidimensional arrays. Examples include already mentioned NumPy, Polars and CuPy but also libraries more focused like Pytorch or TensorFlow for deep learning. Most importantly, TNL and it's `NDArray` fits right in as well.
+Python ecosystem currently offers many libraries that offer implementations of multidimensional arrays. Examples include already mentioned NumPy, Polars and CuPy but also libraries more focused like Pytorch or TensorFlow for deep learning. Most importantly, TNL and its `NDArray` fits right in as well.
 
 While the interfaces often share similarities, as they are frequently inspired by NumPy, the historical standard for numerical computing in Python, their subtle inconsistencies make it difficult to write portable code that can seamlessly operate across multiple libraries.
 
 Python Array API Standard, whose first version released in 2021, attempts to address this growing fragmentation. The authors' goals however is by no means to make the libraries identical or make them all conform the the NumPy's API. Quite opposite in fact, they openly recognize there are good reasons for the inconsistencies and differences. They specifically list non-CPU device or JIT compilers support as some of the reasons the standard is willing to deviate from the laid ground work by these long existing libraries.
 
-That, in my opinion, makes the standard highly relevant both to this work and PyTNL itself. Apart from lowering user's learning curve by making the API more familiar. Adhering to the the standard would allows array-consuming libraries, like Numba, to accept PyTNL array-like data structures and run operations on them directly.
+That makes the standard highly relevant both to this work and PyTNL itself. Apart from lowering user's learning curve by making the API more familiar. Adhering to the the standard would allows array-consuming libraries, like Numba, to accept PyTNL array-like data structures and run operations on them directly.
 
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html
-The interoperability can be achieved either by Python's duck typing, or, more importantly, through a data exchange mechanism that would allow converting the arrays into others or simply directly accessing the underlying data. Instead of designing it's own protocol, the standard states requirements the protocol should fulfil and recommends an already existing protocol, along with two possible alternatives. All three protocols are described below.
+The interoperability can be achieved either by Python's duck typing, or, more importantly, through a data exchange mechanism that would allow converting the arrays into others or expose the underlying data directly. Instead of designing its own protocol, the standard states requirements, listed in @array_standard_interchange_requirements_table, the protocol should fulfil and recommends an already existing protocol, along with two possible alternatives. All three protocols are described below.
 
-I list the requirements in @array_standard_interchange_requirements_table. For our use case, that is allowing Numba's JIT compiled functions to execute upon the PyTNL's array, the most important requirement is allowing the zero-copy view. Forcing a copy, be it inside the same memory block or worse, from one device memory to another, would likely once again invalidate all the performance gains the function compilation provides in the first place.
+For allowing Numba's JIT compiled functions to execute upon the PyTNL's array, the most important requirement is allowing the zero-copy view. Forcing a copy, be it inside the same memory block or worse, from one device memory to another, would likely once again invalidate all the performance gains the function compilation provides in the first place.
 
-It's of course similarly important to offer multi device support, as the (Py)TNL is built with device support in mind as well. However, this requirement can be be easily circumvented by simply supporting multiple different protocols.
+It is of course similarly important to offer multi device support, as the (Py)TNL is built with device support in mind as well. However, this requirement can be be easily circumvented by simply supporting multiple different protocols.
 
 
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html
@@ -133,10 +133,10 @@ The consumer simply accesses the underlying buffer by the supplied pointer in th
 
 Note that while this allows creation of zero copy views of the data, the interface does not handle ownership transfer or even object's lifetime in any way. The original producer generally remains responsible for the data and their eventual destruction.
 
-The user is also responsible for ensuring the original object's lifetime outlives the view. Some libraries may help the user with this by keeping the reference to the original object. That is however library dependant and is not specified in the standard.
+The user is also responsible for ensuring the original object's lifetime outlives the view. Some libraries may help the user with this by keeping the reference to the original object. That is however library dependent and is not specified in the standard.
 
 // https://docs.cupy.dev/en/stable/reference/generated/cupy.asarray.html#cupy.asarray
-For example, CuPy holds the reference after construting the object with `asarray` function only if the original has been a CuPy array as well. Numba itself provides two different options for constructing the view. One holds the reference, the other does not.
+For example, CuPy holds the reference after constructing the object with `asarray` function only if the original has been a CuPy array as well. Numba itself provides two different options for constructing the view. One holds the reference, the other does not.
 
 #figure(
   table(
@@ -178,7 +178,7 @@ As demonstrated in the previous sections, both the Buffer protocol and the CUDA 
 
 DLPack is an open, in-memory tensor structure designed specifically to facilitate the sharing of tensors across different hardware devices and frameworks. Unlike its predecessors, DLPack fulfills all the strict requirements established by the Array API Standard (as outlined in @array_standard_interchange_requirements_table). It provides a stable C ABI, allows for zero-copy semantics, and comprehensively supports a wide array of hardware devices, including CPUs, CUDA GPUs, ROCm, OpenCL, and Vulkan, among others.
 
-At the C-level, the specification revolves around two primary structures: DLTensor and DLManagedTensor. The DLTensor structure contains the actual pointer to the data array alongside all the necessary metadata to interpret it, such as the target device, data type, shape, and strides. I summarize the fields of the DLTensor structure in @dlpack_fields.
+At the C-level, the specification revolves around two primary structures: DLTensor and DLManagedTensor. The DLTensor structure contains the actual pointer to the data array alongside all the necessary metadata to interpret it, such as the target device, data type, shape, and strides. The fields of the DLTensor structure are summarized in @dlpack_fields.
 
 // TODO: maybe the diagram makes the table redundant, remove?
 
@@ -266,7 +266,7 @@ With the protocol implementations in place, PyTNL's array containers become cons
 
 === Zero-copy interoperability
 
-I demonstrate the zero-copy interoperability on a very simple use case. After PyTNL array initialization, user needs to be able to create a view of the data in another library, modify it in place and see the changes reflected in the original PyTNL array. In fact, the same should apply the other way around and changes in the original data need to be visible in the view as well.
+The zero-copy interoperability is demonstrated on a very simple use case. After PyTNL array initialization, user needs to be able to create a view of the data in another library, modify it in place and see the changes reflected in the original PyTNL array. In fact, the same should apply the other way around and changes in the original data need to be visible in the view as well.
 
 #code1(
   [Bidirectional zero-copy sharing via all three interchange protocols. All assertions pass.],
@@ -332,7 +332,7 @@ An important consequence of this approach is that the user-defined functions mus
 
 Another consequence is that what Numba sees is not a PyTNL object with its methods and attributes, but a bare typed buffer. When a PyTNL host array is passed into a `@jit`-compiled function, Numba resolves it through the Buffer protocol and internally represents it as a simple typed memory view --- for instance `buffer(float64, 1d, C)`. No PyTNL methods, properties, or Python-level attributes are available inside the compiled function. The user can index into the buffer, query its length, and perform arithmetic, but cannot call, say, `data.getElement()` or any other PyTNL-specific API. This is a fundamental constraint: the protocol gives direct memory access, but strips away the source object's interface entirely.
 
-With that in mind, I demonstrate three Numba compilation modes below, each operating directly on PyTNL arrays through the implemented protocols.
+With that in mind, three Numba compilation modes are shown below, each operating directly on PyTNL arrays through the implemented protocols.
 
 ==== Numba `@jit` --- CPU JIT-compiled loops
 
@@ -445,27 +445,22 @@ This goes beyond simple element-wise operations and demonstrates that the export
 
 === Sparse matrix access
 
-So far, the examples and focus have been only on dense, multidimensional, arrays. That however is not the only data structure TNL supports. In this section I would like to briefly demonstrate how the array transfer protocols can be useful even for the more complex data structures such as sparse matrices.
+So far, the examples and focus have been only on dense, multidimensional, arrays. That however is not the only data structure TNL supports. This section briefly demonstrates how the array transfer protocols can be useful even for the more complex data structures such as sparse matrices.
 
 ==== CSR Format
 
-// http://hdl.handle.net/10467/116916
-// TODO: the example is "stolen" from the original TNL thesis, that ok? (provided I cite it ofc)
+// https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html
 The Compressed Sparse Row (CSR) format is one of the most common sparse matrix representations. Instead of of storing all the elements in a two-dimensional array, it uses three separate one-dimensional arrays to represent only the non-zero values and their positions:
 
 - `VALUES` array contains all the non-zero values sorted from top to bottom and left to right. Matrix of $N$ non-zero elements will have `VALUES` of length $N$.
 - `COLUMN_INDICES` array contains the column index record for each value in `VALUES`. It has the same length as `VALUES`.
 - `ROW_POINTERS` array specifies the distribution of values across rows. Each entry corresponds to one row and contains the index in `VALUES`, and `COLUMN_INDICES`, where the row starts. If matrix consists of $M$ rows, `ROW_POINTERS` will have length $M + 1$, with the last entry pointing to the end of the `VALUES` array.
 
-Consider this straightforward example of a sparse matrix:
-
-$ mat(a, 0, 0, 0; 0, b, c, 0; 0, 0, 0, 0; 0, d, 0, 0) $ <eq:sparse-csr-example>
-
-where $a$, $b$, $c$, and $d$ are non-zero elements. The CSR format of this sparse matrix will appear as follows:
-
-- `VALUES` $= [a, b, c, d]$,
-- `COLUMN_INDICES` $= [0, 1, 2, 1]$,
-- `ROW_POINTERS` $= [0, 1, 3, 3, 4]$.
+// https://docs.nvidia.com/nvpl/latest/sparse/storage_format/sparse_matrix.html#compressed-sparse-row-csr
+#figure(
+  image("assets/csr_example.png", width: 85%),
+  caption: [Illustrative example of the CSR format for a sparse matrix.],
+)
 
 ==== Benefits of array backed data structures
 
@@ -504,7 +499,7 @@ This approach does come with a usability cost: the user must understand the inte
 
 === Performance evaluation <protocol_performance_evaluation>
 
-To sum up the demonstration, I designed a benchmark to evaluate the performance of the protocol-based direct access approach for executing element-wise operations on PyTNL arrays. The goal is to compare the performance of executing a simple element-wise scaling operation through the protocols against the results from @function_calling_from_cpp_benchmark, where the same operation was implemented by passing Python functions into the #cpp runtime.
+To sum up the demonstration, benchmark evaluates the performance of the protocol-based direct access approach for executing element-wise operations on PyTNL arrays. The goal is to compare the performance of executing a simple element-wise scaling operation through the protocols against the results from @function_calling_from_cpp_benchmark, where the same operation was implemented by passing Python functions into the #cpp runtime.
 
 The benchmark measures the same operation --- scaling every element of a $2^21$-element array by a constant factor --- across all methods demonstrated in the preceding sections, as well as baseline approaches including plain Python loops and NumPy's built-in ufunc. Each method was timed over multiple iterations and the average per-iteration time is reported. The results are summarized in @benchmark_user_functions_protocol_table.
 

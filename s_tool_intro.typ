@@ -1,7 +1,7 @@
 #import "ctufit-thesis.typ": *
 #import "@preview/dashy-todo:0.1.3": todo
 
-= Introduction
+= Background and related technologies
 
 == Template Numerical Library
 
@@ -18,84 +18,63 @@ NDArrays are a higher-level abstraction built on top of classic arrays that prov
 
 == PyTNL
 
-Speaking of it, PyTNL is a Python binding layer for selected TNL components. PyTNL aims to use TNL's effective backend and following the original focus on user experience, provide even more accessible interface that uses Python's expressiveness and convenience. As of beginning of 2026, PyTNL is still under active development and the set of exported features is still evolving. The focused arrays and NDArrays are already available. 
+PyTNL is a Python binding layer for selected TNL components. PyTNL aims to use TNL's effective backend and following the original focus on user experience, provide even more accessible interface that uses Python's expressiveness and convenience. As of beginning of 2026, PyTNL is still under active development and the set of exported features is still evolving. The focused arrays and NDArrays are already available. 
 
 === Nanobind
 
-For the bindings, PyTNL relies on nanobind, small binding library for exposing #cpp types in Python and vice versa. It's goal is to be a modern and efficient, maybe bit opinionated, alternative to more established pybind11 or Boost.Python. According to authors, nanobind compiles in a shorter amount of time, produces smaller libraries and has better runtime performance.
+For the bindings, PyTNL relies on nanobind, small binding library for exposing #cpp types in Python and vice versa. Its goal is to be a modern and efficient, maybe bit opinionated, alternative to more established pybind11 or Boost.Python. According to authors, nanobind compiles in a shorter amount of time, produces smaller libraries and has better runtime performance.
 
-What may prove challenging is that as part of it's philosophy, nanobind does not intend to be be usable for #cpp codebases and instead focuses on providing clean and efficient bindings just for a smaller #cpp subset. The philosophy explicitly states: The codebase has to adapt to the binding tool and not the other way around. Next chapter will explore how fitting match TNL is and if nanobind's design may impose some limitations on the features current TNL can expose to Python.
+What may prove challenging is that as part of its philosophy, nanobind does not intend to be be usable for #cpp codebases and instead focuses on providing clean and efficient bindings just for a smaller #cpp subset. The philosophy explicitly states: The codebase has to adapt to the binding tool and not the other way around. Next chapter will explore how fitting match TNL is and if nanobind's design may impose some limitations on the features current TNL can expose to Python.
 
-// http://hdl.handle.net/10467/116916
 == Compute Unified Device Architecture
 
-#todo[Heavily derived or directly copied from http://hdl.handle.net/10467/116916. Is that ok if cited?]
+// https://developer.nvidia.com/cuda
+// source for "proprietary" https://www.theregister.com/2021/11/10/nvidia_cuda_silicon/
+// https://docs.nvidia.com/cuda/cuda-programming-guide/01-introduction/introduction.html
+The Compute Unified Device Architecture (CUDA) is a proprietary and closed-source parallel computing platform introduced in 2006 developed by the NVIDIA Corporation that allows software to use GPUs for accelerated computing. The toolkit allows developers to write GPU accelerated applications in numerous languages including C, #cpp or Python and is adopted by many existing libraries and frameworks like PyTorch.
 
-The Compute Unified Device Architecture (CUDA) is a proprietary and closed-source parallel computing platform and an application programming interface (API) developed by the NVIDIA Corporation that allows software to use GPUs for general-purpose programming (GPGPU). C, C++, Python, and Fortran programming languages are compatible with the CUDA, making it easy to access parallel architecture resources.
+=== Expected heterogeneous system
 
-==== Thread hierarchy
+// https://docs.nvidia.com/cuda/cuda-programming-guide/01-introduction/programming-model.html
+The CUDA programming model is not strictly about GPU execution, in fact it assumes a heterogeneous system where the CPU (host) and GPU (device) work together. Both CPU and GPU have their own memory spaces called _host memory_ and _device memory_, respectively. In some systems, the memory may be unified and conversely some systems may have multiple GPUs or even CPUs, each with their own memory space, but for simplicity, the works only considers the most common case of a single CPU and a single GPU with separate memory spaces.
 
-// http://hdl.handle.net/10467/116916
-The CUDA architecture comprises a hierarchical structure that includes threads, blocks, and grids, which facilitates parallel computation:
+CUDA applications execute code on the GPU but they always start on the CPU. Code running on the CPU is called host code and typically handles the orchestration of the application, memory transfers, starting GPU execution and processing the results of it. 
 
-- *Threads* in CUDA are the smallest units of execution. Each thread executes an instance of a kernel function, which is a function written to run on the GPU. Threads operate concurrently, performing computations on different pieces of data. Key characteristics of CUDA threads include:
-    - *Identification:* Each thread has a unique thread ID, which is accessible within the kernel through the built-in variable `threadIdx`. This ID helps in indexing and accessing specific data elements in parallel.
-    - *Scope:* Threads have access to different types of memory, including local memory (private to each thread) and shared memory (shared among threads within a block, denoted in the C++ programming language by the keyword `__shared__`).
-    - *Synchronization:* Threads within the same block can synchronize their execution using synchronization functions like `__syncthreads()`. This ensures that all threads in the block reach a certain point before any thread proceeds, facilitating coordinated data sharing and avoiding race conditions.
+On the other hand, code running on the GPU is called device code. For historical reasons, functions executed on the GPU are called kernels and starting them is often referred to as launching a kernel. The distinction is important because the kernels are quite different from regular CPU functions. Instead of being a set of instructions executed sequentially, kernel is executed by many threads in parallel that must carefully coordinate themselves through shared memory.
 
-- *Blocks* are groups of threads that can operate by sharing data through shared memory and synchronizing their execution. Each block has a unique block ID, accessible via the `blockIdx` variable. Key characteristics of CUDA blocks include:
-    - *Dimension:* Blocks can be one-dimensional, two-dimensional, or three-dimensional. This flexibility allows for efficient mapping of threads to multi-dimensional data structures.
-    - *Size:* The maximum number of threads per block is limited by the GPU architecture, typically 1024 threads per block on modern GPUs. This limit necessitates careful design to balance parallelism and resource usage.
-    - *Shared memory:* Threads within a block can communicate and share data via shared memory. Compared to global memory, shared memory is particularly useful for algorithms that require frequent data exchange among threads.
+==== CUDA threads and blocks
 
-- *Grids* are collections of blocks that execute the same kernel function. The grid structure allows for the parallel execution of a large number of blocks, scaling up the parallelism to handle extensive computational tasks. Key characteristics of CUDA grids include:
-    - *Dimension:* Similar to blocks, grids can be one-dimensional, two-dimensional, or three-dimensional. This allows for efficient organization and indexing of large datasets.
-    - *Global scope:* Each block within a grid has a unique ID, accessible via the `blockIdx` variable. Combined with the thread ID, accessible via the `threadIdx` variable, this allows for global indexing of threads across the entire grid.
-    - *Scalability:* The grid structure provides a scalable framework for parallel computation. By adjusting the number of blocks and threads, developers can optimize the execution to match the capabilities of the GPU and the requirements of the problem being solved.
+// https://docs.nvidia.com/cuda/cuda-programming-guide/01-introduction/programming-model.html#thread-blocks-and-grids
+As mentioned, kernels are executed by many threads in parallel. These threads are organized into blocks and blocks are organized into grids. Both blocks and grids can have one, two, or three dimensions which can simplify mapping of the threads to data structures. But in a grid, all thread blocks need to have the same number of threads and dimensions. 
 
-==== CUDA Kernel
+#figure(
+    caption: [Grid of Thread Blocks. Each arrow represents a thread (the number of arrows is not representative of actual number of threads)..],
+    image("assets/cuda_grid_threads.png"),
+) <cuda_thread_grid_diagram>
 
-A CUDA kernel is a function that runs on a GPU. Unlike regular functions that execute on the CPU, a CUDA kernel is designed to be executed by many threads in parallel on a GPU. Consider the following example of a kernel declaration below:
+To launch a kernel, the programmer must specify the number of requested thread blocks and number of threads per block as part of the so called execution configuration. Each thread can later determine its location within the block as well as in the whole grid through built-in variables `threadIdx`, `blockIdx`, and `blockDim`. This allows threads to compute their global thread ID, which is often used to determine which part of the work the thread is responsible for.
 
-```cpp
-__global__ void kernelFunction( parameters ) {
-    int gtidx = blockIdx.x * blockDim.x + threadIdx.x; // Calculate the global thread ID
+During execution, CUDA assigns the blocks to available streaming multiprocessors (SMs) on the GPU in no guaranteed order. The threads within the block then execute concurrently on the same SM. This architecture allows arbitrarily large grids to be launched, as even smaller GPUs with fewer SMs can execute the blocks in batches. However, it also means there can be no dependencies between different thread blocks. 
 
-    // Perform computation
-}
-```
-
-As can be seen in the example code block above, the CUDA kernel kernelFunction is initialized with the `__global__` keyword, indicating that kernelFunction is a kernel function that runs on the device (GPU) and is called from the host (CPU).
-
-Launching a CUDA kernel requires specifying the execution configuration, including the number of blocks in a grid and the number of threads per block. For example:
-
-```cpp
-int numBlocks = 16;
-int numThreadsPerBlock = 256;
-
-kernelFunction<<< numBlocks, numThreadsPerBlock >>>( parameters );
-```
-
-Here in the example code block, the name of the CUDA kernel kernelFunction is specified, followed by the <<< ... >>> execution syntax, where the number of available thread blocks and threads per block are specified.
-
-// TODO: fact check and maybe rewrite the ending 
-// https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/nvcc.html
 === Compiler infrastructure
 
-To utilize GPU with a library like TNL, the code has to be compiled with a compatible compiler that can generate GPU code. The NVIDIA CUDA Compiler (`nvcc`) is a typical entry point for compilation of CUDA C/#cpp code as well as parallel thread execution (PTX) assembly code. Compared to traditional compilers, `nvcc` itself is more of a driver that orchestrates the whole compilation process. 
+// https://docs.nvidia.com/cuda/cuda-programming-guide/01-introduction/cuda-platform.html
+// https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/nvcc.html
+// https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html
+To utilize GPU with a library like TNL, the code has to be compiled with a compatible compiler that can generate the device code. The NVIDIA CUDA Compiler (`nvcc`) is a typical entry point for compilation of CUDA C/#cpp code as well as parallel thread execution (PTX) assembly code. Compared to traditional compilers, `nvcc` itself is more of a driver that orchestrates the whole compilation process. 
 
-Source files compiled with `nvcc` can contain both host code, executed on the CPU, and device code, executed on the GPU. In the initial phase, `nvcc` separates the targets and dispatches their compilation  to the GPU and the host compilers, respectively. For host code, `nvcc` invokes a standard C/#cpp compiler (like `g++`), which needs to be present and accessible on the system. Pure host code is compiled directly, and the calls to GPU code are linked at link-time. 
+Source files compiled with `nvcc` can contain both host code and device code. In the initial phase, `nvcc` separates the targets and dispatches their compilation  to the GPU and the host compilers, respectively. For host code, `nvcc` invokes a standard C/#cpp compiler (like `g++`), which needs to be present and accessible on the system. Pure host code is compiled directly, and the calls to GPU code are linked at link-time. 
 
-The GPU compilation process compiles #cpp device code into PTX assembly in two steps. First, the code is compiled by the compiler front-end into NVVM IR, an intermediate representation that abstracts away the original source language. Then, it the NVVM, LLVM based, compiler generates the PTX, low-level assembly language containing GPU instructions. This can be done multiple times for each desired virtual instruction set architecture, possibly resulting in multiple PTX files. 
+The GPU compilation process first compiles #cpp device code into _Parallel Thread Execution_ (PTX) assembly. A high-level assembly language for NVIDIA GPUs. This happens in two steps. First, the code is compiled by the compiler front-end into NVVM IR, an intermediate representation that abstracts away the original source language. Then, it the NVVM, LLVM based, compiler generates the PTX. This can be done multiple times for each desired virtual instruction set architecture (ISA), possibly resulting in multiple PTX files. 
 
-The PTX files are then passed to `ptxas` tool, which generates the final GPU binary code (`cubin`) for specific hardware. This can once again be done multiple times for different targets. Finally, all these targets can be embedded into a single fat binary to support a range of GPU architectures. 
+The PTX files are then passed to `ptxas` tool, which generates the final GPU binary code (`cubin`) for specific hardware. This can once again be done multiple times for different targets. Finally, all these targets can be embedded into a single fat binary to support a range of GPU architectures. One of the strengths of the additional PTX layer is that if compatible PTX is present, the GPU driver can JIT compile additional `cubin`s for newer architectures without needing to recompile the original source.
 
 #figure(
     caption: [`nvcc` compilation workflow with multiple PTX and Cubin architectures.],
     image("assets/nvcc_execution.png")
 ) <nvcc_compilation_diagram>
 
-`nvcc` coordinates this entire process, usually hiding the complexity from it's user. However, when it comes to Just-in-time compilation in later chapters, it may be useful to understand the underlying phases as it's not strictly required to always go through all of them. 
+`nvcc` coordinates this entire process, usually hiding the complexity from its user. However, when it comes to Just-in-time compilation in later chapters, it may be useful to understand the underlying phases as it is not strictly required to always go through all of them. 
 
 == Similar libraries
 
