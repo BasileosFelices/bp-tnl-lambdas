@@ -1,7 +1,7 @@
 #import "ctufit-thesis.typ": *
 #import "@preview/dashy-todo:0.1.3": todo
 
-= Introduction
+= Background and related technologies
 
 == Template Numerical Library
 
