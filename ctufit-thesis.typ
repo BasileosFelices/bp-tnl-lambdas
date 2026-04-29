@@ -854,7 +854,8 @@
     pagebreak()
     bibliography(
       "works.bib",
-      style: "/assets/ieee-with-url.csl",
+      // style: "/assets/ieee-with-url.csl",
+      style: "iso-690-numeric"
       // style: "institute-of-electrical-and-electronics-engineers",
       // style: "association-for-computing-machinery",
       // style: "american-psychological-association",
