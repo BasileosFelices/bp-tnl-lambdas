@@ -101,27 +101,4 @@
 
 #todo(position: "inline")[How to include PDLP. It doesn't really tie in with the rest of the thesis, maybe try CVXPy and show the compatibility?]
 
-= Julia TNL bindings
-
-
-== Native capabilities
-
-// https://docs.julialang.org/en/v1/manual/calling-c-and-fortran-code/#Calling-C-and-Fortran-Code
-
-== Bindings libraries
-
-=== CBinding.jl
-
-=== Cxx.jl
-
-=== CxxWrap.jl
-
-== PythonCall
-
-// https://juliapy.github.io/PythonCall.jl/stable/pythoncall/
-
-// https://piembsystech.com/calling-python-code-with-pycall-in-julia-programming-language/
-
-== C like performance
-
-== JIT
+#include "s_julia.typ"
