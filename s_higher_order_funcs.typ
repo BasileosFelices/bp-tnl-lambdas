@@ -6,9 +6,9 @@
 This chapter introduces higher-order functions in TNL and explores Python binding strategies for them. It also discusses the use of just-in-time compilation techniques to improve the performance of Python callbacks that would allow them to reach the native performance of the original #cpp code.
 
 == Higher-order functions in TNL
-
+// TODO: check this doesn't reintroduce anything again
 // https://tnl-project.gitlab.io/tnl/classTNL_1_1Containers_1_1Array.html#aab46e9d7161d32fd887683f2d2c52046
-TNL utilizes higher-order functions and methods quite extensively to allow users to express their custom logic. The TNL arrays have the `.forElements` and `.forAllElements` methods that allow running any custom element-wise operations on the elements. These methods take a lambda function that takes an index and a reference to the current element. The lambda is then called for each element of the array or each element inside given bounds. This is performed at the same place where the array is allocated. That is, it allow parallel execution of the GPU provided the lambda is declared `__cuda_callable__`.
+TNL utilizes higher-order functions and methods quite extensively to allow users to express their custom logic. The TNL arrays have the `.forElements` and `.forAllElements` methods that allow running any custom element-wise operations on the elements. These methods take a lambda function that takes an index and a reference to the current element. The lambda is then called for each element of the array or each element inside given bounds. This is performed at the same place where the array is allocated. That is, it allows parallel execution of the GPU provided the lambda is declared `__cuda_callable__`. #cite(<c_tnl-array-docs>)
 
 #code1(
   [Example of `.forElements` TNL Array method as showcased in the documentation],
@@ -61,7 +61,7 @@ Another example could be the `parallelFor` function from the Algorithms namespac
 )
 
 // https://en.cppreference.com/cpp/utility/functional/function
-The `parallelFor` gets a lot of use and flexibility thanks to context capturing ability of #cpp lambda functions. Lambda functions, especially those introduced with #cpp 11 standard, are not merely anonymous pieces of code. When a lambda refers to variables from the surrounding scope, the compiler generates a small callable object, often called a closure, that stores the captured data together with the function body. The data may be captured by value, meaning a copy is stored inside the closure, or by reference, meaning the closure keeps access to an existing object. In practice, this means that the lambda can behave as a compact custom function that already carries its own local state.
+The `parallelFor` gets a lot of use and flexibility thanks to context capturing ability of #cpp lambda functions. Lambda functions, especially those introduced with #cpp 11 standard, are not merely anonymous pieces of code. When a lambda refers to variables from the surrounding scope, the compiler generates a small callable object, often called a closure, that stores the captured data together with the function body. The data may be captured by value, meaning a copy is stored inside the closure, or by reference, meaning the closure keeps access to an existing object. In practice, this means that the lambda can behave as a compact custom function that already carries its own local state. #cite(<c_cppreference-std-function>)
 
 This is particularly useful for higher-order interfaces such as `parallelFor`. The algorithm itself only needs to know how to iterate over a range of indices and when to invoke the callback. Any additional information, such as views of arrays, scalar parameters, material constants, or auxiliary buffers, can be supplied through the lambda capture instead of being threaded through the algorithm interface explicitly. The resulting API remains generic and reusable, while the user code remains local, readable, and close to the point where the data are prepared.
 
@@ -69,12 +69,11 @@ This ability to combine executable logic with state prepared in the surrounding 
 
 == PyTNL and Nanobind <pytnl_nanobind_callbacks>
 
-// https://nanobind.readthedocs.io/en/latest/functions.html#higher-order-functions
-// https://nanobind.readthedocs.io/en/latest/exchanging.html
-
 Nanobind supports higher-order functions, but it does so using Python interoperability mechanisms rather than by turning Python lambdas into native #cpp closures. For PyTNL, the two relevant approaches are type casting through `std::function` and direct manipulation of Python callables through wrapper types such as `nb::callable` or the more general `nb::object`.
 
-The most convenient binding strategy is to expose a #cpp function that accepts a `std::function<R(Args...)>`. After including `nanobind/stl/function.h`, nanobind can accept any Python callable with a compatible signature, including ordinary functions, callable objects, and lambda expressions. This is the mechanism shown in the nanobind documentation for higher-order functions. From the Python side, the user simply passes a lambda as an argument, while from the #cpp side the callback is received through the familiar `std::function` interface. This is useful as it allows usage of already existing higher-order functions in TNL without modification.
+// https://nanobind.readthedocs.io/en/latest/functions.html#higher-order-functions
+// https://nanobind.readthedocs.io/en/latest/exchanging.html
+The most convenient binding strategy is to expose a #cpp function that accepts a `std::function<R(Args...)>`. After including `nanobind/stl/function.h`, nanobind can accept any Python callable with a compatible signature, including ordinary functions, callable objects, and lambda expressions. This is the mechanism shown in the nanobind documentation for higher-order functions. From the Python side, the user simply passes a lambda as an argument, while from the #cpp side the callback is received through the familiar `std::function` interface. This is useful as it allows usage of already existing higher-order functions in TNL without modification. #cite(<c_nanobind-docs>)
 
 #code1(
   [Example of a bound method accepting native `std::function`. `DoubleVector` represents custom class wrapping access to `std::vector<Double>`.],
@@ -176,7 +175,7 @@ Since the potential benefits of making this work are substantial, the following 
 == Numba <numba_introduction>
 
 // https://numba.readthedocs.io/en/0.65.0/
-Numba is a just-in-time compiler for Python focused primarily on numerical code. Instead of interpreting the decorated function statement by statement, Numba analyzes its bytecode together with the concrete argument types seen at runtime and generates specialized native machine code by leveraging the LLVM compiler infrastructure. In the common case of loop-heavy numerical kernels over arrays, this can remove a large part of the overhead normally associated with Python execution while preserving the convenience of writing the logic in Python syntax.
+Numba is a just-in-time compiler for Python focused primarily on numerical code. Instead of interpreting the decorated function statement by statement, Numba analyzes its bytecode together with the concrete argument types seen at runtime and generates specialized native machine code by leveraging the LLVM compiler infrastructure. In the common case of loop-heavy numerical kernels over arrays, this can remove a large part of the overhead normally associated with Python execution while preserving the convenience of writing the logic in Python syntax. #cite(<c_numba>)
 
 Among the available Python acceleration tools, Numba was a particularly relevant starting point for this work. The aim was not to replace PyTNL with a separate numerical framework, but to extend it with a compilation layer for user-defined logic. Libraries such as JAX or CuPy are powerful, but they are centered around their own array objects and execution models, making them closer to alternative numerical environments than to lightweight extensions of an existing library. At the other end of the spectrum, tools such as Cython or Pythran can generate highly efficient native code, but they are oriented more toward source translation and extension-module builds than toward compiling ordinary user-defined Python functions dynamically at runtime. Numba occupies a pragmatic middle ground: it is well established in the scientific Python ecosystem, works naturally with array-oriented numerical code, supports both CPU and CUDA execution, interoperates with standard memory-sharing protocols, and uniquely offers both ordinary JIT-compiled Python functions and native C-callable callbacks through `@cfunc`.
 
@@ -255,10 +254,10 @@ The trade-off is that `@cfunc` is also much more restrictive. The callable must 
 === Numba CUDA <numba_cuda_introduction>
 
 // https://nvidia.github.io/numba-cuda/
-For GPU execution, Numba also provides a CUDA backend, commonly referred to as Numba-CUDA. Unlike the CPU-side decorators discussed above, this backend compiles a restricted subset of Python into CUDA kernels and device functions that follow the CUDA execution model. This makes it possible to write GPU kernels in Python syntax, but it also means that the resulting object is fundamentally different from the CPU-side functions discussed above.
+For GPU execution, Numba also provides a CUDA backend, commonly referred to as Numba-CUDA. Unlike the CPU-side decorators discussed above, this backend compiles a restricted subset of Python into CUDA kernels and device functions that follow the CUDA execution model. #cite(<c_numba-cuda>) This makes it possible to write GPU kernels in Python syntax, but it also means that the resulting object is fundamentally different from the CPU-side functions discussed above.
 
 // https://nvidia.github.io/numba-cuda/user/kernels.html
-With CPU Numba, the `@jit` decorator still produces a Python-callable object, and `@cfunc` can produce a host-side function pointer with a conventional scalar signature. A function decorated with `@cuda.jit` is neither of these. It is a kernel launch object, that is, a GPU function meant to be invoked from host code. This has two immediate consequences relevant to PyTNL:
+With CPU Numba, the `@jit` decorator still produces a Python-callable object, and `@cfunc` can produce a host-side function pointer with a conventional scalar signature. A function decorated with `@cuda.jit` is neither of these. It is a kernel launch object, that is, a GPU function meant to be invoked from host code. This has two immediate consequences relevant to PyTNL: #cite(<c_numba-cuda>)
 
 - Kernels cannot directly return values. All results must be written to one or more arrays in device memory passed as arguments, even when the logical result is just a single scalar.
 - Kernels must be launched with an explicit execution configuration, that is, the number of blocks and threads to execute. This configuration is chosen at launch time and different launch sizes do not require recompilation.
@@ -293,7 +292,7 @@ If a GPU-backed container is to interoperate with Numba-CUDA realistically, the 
 
 // https://docs.nvidia.com/cuda/nvrtc/index.html
 NVRTC is NVIDIA's runtime GPU compilation library for CUDA C++. It allows users to compile CUDA code from strings at runtime, producing executable code that can be loaded and invoked from the host.
-NVIDIA itself promotes NVRTC as one of the only ways to achieve runtime compilation of CUDA code without the need to spawn a new process executing `nvcc` at runtime, which according to their documentation is an approach with a couple of drawbacks:
+NVIDIA itself promotes NVRTC as one of the only ways to achieve runtime compilation of CUDA code without the need to spawn a new process executing `nvcc` at runtime, which according to their documentation is an approach with a couple of drawbacks: #cite(<c_cuda-nvrtc>)
 
 - The compilation overhead tends to be higher then necessary.
 - End users are required to have `nvcc` and related build tools setup on their system.
@@ -303,7 +302,7 @@ NVRTC addresses both of these issues by providing a library interface to the CUD
 // https://developer.nvidia.com/cuda/python
 // https://nvidia.github.io/cuda-python/13.1.1/index.html
 // https://nvidia.github.io/cuda-python/cuda-bindings/13.1.1/
-The compiler itself is distributed as a #cpp library to be invoked from #cpp code. However, several Python bindings to NVRTC already exist. NVIDIA itself maintains a couple of them under its CUDA Python libraries. The most direct and low level binding is offered through the `cuda.bindings` module of the `cuda-python` package. It provides almost a one-to-one mapping of the NVRTC API, allowing users to manage the entire compilation and linking process from Python themselves.
+The compiler itself is distributed as a #cpp library to be invoked from #cpp code. However, several Python bindings to NVRTC already exist. NVIDIA itself maintains a couple of them under its CUDA Python libraries. The most direct and low level binding is offered through the `cuda.bindings` module of the `cuda-python` package. It provides almost a one-to-one mapping of the NVRTC API, allowing users to manage the entire compilation and linking process from Python themselves. #cite(<c_cuda-python>)
 
 As the code snippet below (@nvrtc_cuda_bindings_example) shows, the complete control over the process is a tradeoff that costs a lot of convenience and requires good understanding the NVRTC API. To launch the CUDA kernel, the user must also manually load the resulting PTX code into a CUDA module, retrieve the kernel function, prepare device memory, copy the data into it and finally launch it with valid configuration.
 
@@ -373,7 +372,7 @@ To avoid all that, `cuda.core` module from `cuda-core` package aims to provide a
 )
 
 // https://docs.cupy.dev/en/v14.0.1/user_guide/kernel.html
-The interface can be further simplified and almost reach the convenient usage showcased by Numba-CUDA in the @numba_cuda_introduction. For example `CuPy` library itself provides a couple of kernel wrappers essentially only need the #cpp code string and construct a callable kernel object that looks just like a normal Python function. The last example in this section shows its `ElementWiseKernel` which goes yet one step further and wraps the input #cpp function in a way it can be defined as a pure element-wise operation.
+The interface can be further simplified and almost reach the convenient usage showcased by Numba-CUDA in the @numba_cuda_introduction. For example `CuPy` library itself provides a couple of kernel wrappers essentially only need the #cpp code string and construct a callable kernel object that looks just like a normal Python function. The last example in this section shows its `ElementWiseKernel` which goes yet one step further and wraps the input #cpp function in a way it can be defined as a pure element-wise operation. #cite(<c_cupy-kernels>)
 
 #code1(
   [Example of `cupy.ElementWiseKernel` class to launch a kernel compiled at runtime.],
@@ -440,7 +439,7 @@ The first encountered problem was simply exposing the TNL headers to the runtime
 
 
 // https://docs.nvidia.com/cuda/nvrtc/index.html#language
-While inconvenient, this part is still merely tooling. The more important issue is structural: NVRTC is a strictly GPU-side compiler. To quote the documentation, "Unlike the offline nvcc compiler, NVRTC is meant for compiling only device CUDA C++ code. It does not accept host code or host compiler extensions in the input code, unless otherwise noted." This is not a minor implementation detail. It means that NVRTC can only consume code that is already cleanly expressible as device code, whereas TNL is written for the ordinary CUDA compilation model in which a source file may freely rely on both host-side and device-side compilation.
+While inconvenient, this part is still merely tooling. The more important issue is structural: NVRTC is a strictly GPU-side compiler. To quote the documentation, "Unlike the offline nvcc compiler, NVRTC is meant for compiling only device CUDA C++ code. It does not accept host code or host compiler extensions in the input code, unless otherwise noted." This is not a minor implementation detail. It means that NVRTC can only consume code that is already cleanly expressible as device code, whereas TNL is written for the ordinary CUDA compilation model in which a source file may freely rely on both host-side and device-side compilation. #cite(<c_cuda-nvrtc>)
 
 // todo: mention where the testing code is? Is it in some kind of appendix?
 In principle one may try to push the source toward NVRTC by adding include paths, by treating unannotated functions as device-callable, or by shadowing problematic standard headers with simplified replacements. These measures are useful because they separate accidental incompatibilities from essential ones. They can help with parsing and can postpone failure. They do not, however, change the compilation model expected by the included library.
@@ -450,7 +449,7 @@ Including `TNL/Algorithms/parallelFor.h` does not pull in a small self-contained
 ==== Jitify
 
 // https://github.com/NVIDIA/jitify
-NVIDIA is aware that integrating NVRTC into existing CUDA code can be tricky and maintains a single-header library called Jitify that aims to simplify the process. It addresses many of the issues and, most importantly, provides replacements for standard headers that can be adapted into an NVRTC-safe form. The library is #cpp only, but for demonstration purposes these headers can at least be imported manually and used instead of the standard ones.
+NVIDIA is aware that integrating NVRTC into existing CUDA code can be tricky and maintains a single-header library called Jitify that aims to simplify the process. It addresses many of the issues and, most importantly, provides replacements for standard headers that can be adapted into an NVRTC-safe form. The library is #cpp only, but for demonstration purposes these headers can at least be imported manually and used instead of the standard ones. #cite(<c_jitify>)
 
 With such Jitify-style stubbing, the compilation does indeed progress further, but the compilation still does not reach successful end. The stubs are likely still insufficient which is something that could be improved with more work, but the compilation starts to show errors that can not be easily circumvented. The `parallelFor` implementation includes setting up and launching the compiled Kernel. That however uses CUDA-API functions explicitly declared as `__host__` as the kernels are at the end meant to be launched from host code. And NVRTC just cannot compile and cannot output host code.
 

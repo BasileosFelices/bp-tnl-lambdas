@@ -60,6 +60,17 @@
 
 #let cpp = box[C#h(-0.1em)++\u{2060}]
 
+#let mcite(..labels) = {
+  "[" 
+  {
+    // The show rule is isolated inside these curly braces
+    show "[": none
+    show "]": none
+    labels.pos().map(l => cite(l)).join(", ")
+  }
+  "]"
+}
+
 #let code2(
   caption,
   label,
@@ -855,7 +866,8 @@
     bibliography(
       "works.bib",
       // style: "/assets/ieee-with-url.csl",
-      style: "iso-690-numeric"
+      style: "/assets/iso690-numeric-en.csl",
+      // style: "iso-690-numeric"
       // style: "institute-of-electrical-and-electronics-engineers",
       // style: "association-for-computing-machinery",
       // style: "american-psychological-association",

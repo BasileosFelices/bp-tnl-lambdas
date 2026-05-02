@@ -9,19 +9,18 @@ The previous chapter demonstrated that calling Python functions from #cpp is eit
 To this end, the approach taken in this chapter inverts the control flow. Instead of the #cpp side invoking a user-supplied function for each element, a TNL data structure produces an interface that grants direct access to its underlying memory. The consumer can then read and modify the data in place, with no further need to invoke the PyTNL bindings or TNL functions during the computation itself. The language boundary is crossed only once --- when the memory view is exported --- rather than on every element access.
 
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html#dlpack-an-in-memory-tensor-structure
-The three data interchange protocols described in this chapter were selected for two reasons. First, the Numba library introduced in @numba_introduction, as well as its CUDA counterpart, provides out-of-the-box support for consuming them. Numba JIT-compiled functions can natively operate on the exported interfaces, yielding a convenient user experience that is demonstrated later in the chapter. Second, all three protocols are recommended by the Python Array API Standard as the preferred mechanisms for data exchange between libraries, making them the most widely adopted conventions in the Python scientific ecosystem.
+The three data interchange protocols described in this chapter were selected for two reasons. First, the Numba library introduced in @numba_introduction, as well as its CUDA counterpart, provides out-of-the-box support for consuming them. Numba JIT-compiled functions can natively operate on the exported interfaces, yielding a convenient user experience that is demonstrated later in the chapter. Second, all three protocols are recommended by the Python Array API Standard as the preferred mechanisms for data exchange between libraries, making them the most widely adopted conventions in the Python scientific ecosystem. #cite(<c_array-api-standard>)
 
 
 == Python Array API Standard
-
-// https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html#dlpack-an-in-memory-tensor-structure
-// https://data-apis.org/array-api/2025.12/purpose_and_scope.html
 
 Python ecosystem currently offers many libraries that offer implementations of multidimensional arrays. Examples include already mentioned NumPy, Polars and CuPy but also libraries more focused like Pytorch or TensorFlow for deep learning. Most importantly, TNL and its `NDArray` fits right in as well.
 
 While the interfaces often share similarities, as they are frequently inspired by NumPy, the historical standard for numerical computing in Python, their subtle inconsistencies make it difficult to write portable code that can seamlessly operate across multiple libraries.
 
-Python Array API Standard, whose first version released in 2021, attempts to address this growing fragmentation. The authors' goals however is by no means to make the libraries identical or make them all conform the the NumPy's API. Quite opposite in fact, they openly recognize there are good reasons for the inconsistencies and differences. They specifically list non-CPU device or JIT compilers support as some of the reasons the standard is willing to deviate from the laid ground work by these long existing libraries.
+// https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html#dlpack-an-in-memory-tensor-structure
+// https://data-apis.org/array-api/2025.12/purpose_and_scope.html
+Python Array API Standard, whose first version released in 2021, attempts to address this growing fragmentation. The authors' goals however is by no means to make the libraries identical or make them all conform the the NumPy's API. Quite opposite in fact, they openly recognize there are good reasons for the inconsistencies and differences. They specifically list non-CPU device or JIT compilers support as some of the reasons the standard is willing to deviate from the laid ground work by these long existing libraries. #cite(<c_array-api-standard>)
 
 That makes the standard highly relevant both to this work and PyTNL itself. Apart from lowering user's learning curve by making the API more familiar. Adhering to the the standard would allows array-consuming libraries, like Numba, to accept PyTNL array-like data structures and run operations on them directly.
 
@@ -99,7 +98,7 @@ It is of course similarly important to offer multi device support, as the (Py)TN
 
 // https://peps.python.org/pep-3118/
 // https://docs.python.org/3/c-api/buffer.html#bufferobjects
-The modern Python Buffer protocol was introduced via PEP 3118 alongside the transition to Python 3. It was designed to resolve limitations in the older buffer API by adding support for multi-dimensional, non-contiguous arrays and complex data types. Its primary goal is to provide a standardized C-level API that allows different Python objects and native extensions—such as NumPy, PIL, or the standard library's io module—to safely share memory and exchange data without the overhead of copying.
+The modern Python Buffer protocol was introduced via PEP 3118 alongside the transition to Python 3. It was designed to resolve limitations in the older buffer API by adding support for multi-dimensional, non-contiguous arrays and complex data types. Its primary goal is to provide a standardized C-level API that allows different Python objects and native extensions—such as NumPy, PIL, or the standard library's io module—to safely share memory and exchange data without the overhead of copying. #mcite(<c_pep3118>, <c_python-buffer-api>)
 
 At its core, the protocol revolves around the `Py_buffer` C structure. When a consumer wishes to access the underlying memory of a buffer-providing object (the producer), it calls the `PyObject_GetBuffer` function. The producer then populates the `Py_buffer` structure with a pointer to the raw data block (buf) alongside rich metadata necessary to interpret the layout. This metadata includes the data type, item size, shape, strides and a flag indicating whether the memory is read-only.
 
@@ -110,18 +109,17 @@ At its core, the protocol revolves around the `Py_buffer` C structure. When a co
 A critical limitation of the Buffer protocol, particularly in the context of modern heterogeneous computing, is its strict assumption that the underlying data resides in CPU-accessible system memory (host memory). The protocol provides no mechanisms, flags, or semantics for denoting device memory, such as data residing on a GPU or other hardware accelerators. The pointer exposed by the protocol is expected to be directly dereferenceable by the host CPU. This fundamental restriction is what necessitated the creation of alternative standards—such as the CUDA Array interface described in a subsequent section—to handle device-side data sharing.
 
 // https://peps.python.org/pep-0688/
-While historically restricted to C extensions, recent developments via PEP 688 (implemented in Python 3.12) have formally exposed the protocol to purely Python-side code. Python classes can now participate as producers by implementing the `__buffer__` and `__release_buffer__` special methods. On the consumer side, Python code natively interacts with the protocol via the built-in memoryview object, providing a safe abstraction over the raw memory buffer.
+While historically restricted to C extensions, recent developments via PEP 688 (implemented in Python 3.12) have formally exposed the protocol to purely Python-side code. Python classes can now participate as producers by implementing the `__buffer__` and `__release_buffer__` special methods. On the consumer side, Python code natively interacts with the protocol via the built-in memoryview object, providing a safe abstraction over the raw memory buffer. #cite(<c_pep688>)
 
 In terms of memory management and object lifetime, the Buffer protocol enforces a strict lock-and-release mechanism. When a consumer requests a buffer view, the producer is notified and typically increments its reference count or locks the underlying memory to prevent reallocation or destruction. Because of this handshake, the consumer is explicitly obligated to call `PyBuffer_Release` (or trigger `__release_buffer__` on the Python side) once it is finished with the view. This ensures highly safe zero-copy data sharing, as the original producer precisely tracks when the exported memory is no longer in use and can safely unlock or free the resources.
 
 
 == CUDA Array interface
 
-// https://numba.pydata.org/numba-doc/0.43.0/cuda/cuda_array_interface.html?highlight=cuda%20array%20interface
+// https://numba.pydata.org/numba-doc/0.43.0/cuda/cuda_array_interface.html
 // https://nvidia.github.io/numba-cuda/user/cuda_array_interface.html
-// the actual first release
-// https://numba.pydata.org/numba-doc/0.39.0/release-notes.html?highlight=release%20notes
-CUDA Array interface has been first proposed an implemented by the Numba package in 2018. It allowed Numba to consume any external arrays that provide this interface. The aim however was to propose a solution not only enabling compatibility for Numba, but even in between different packages among themselves. Inspired by NumPy Array interface it aims to allow interoperability between CUDA array-like objects in all projects.
+// https://numba.pydata.org/numba-doc/0.39.0/release-notes.html
+CUDA Array interface has been first proposed an implemented by the Numba package in 2018. It allowed Numba to consume any external arrays that provide this interface. The aim however was to propose a solution not only enabling compatibility for Numba, but even in between different packages among themselves. Inspired by NumPy Array interface it aims to allow interoperability between CUDA array-like objects in all projects. #mcite(<c_cuda-array-interface>, <c_numba039-release>)
 
 The specification itself is rather simple, especially as, compared to the Buffer protocol or the above mentioned NumPy Array interface. It defines only Python-side access. Although C-side access is said to be considered for the future.
 
@@ -135,8 +133,8 @@ Note that while this allows creation of zero copy views of the data, the interfa
 
 The user is also responsible for ensuring the original object's lifetime outlives the view. Some libraries may help the user with this by keeping the reference to the original object. That is however library dependent and is not specified in the standard.
 
-// https://docs.cupy.dev/en/stable/reference/generated/cupy.asarray.html#cupy.asarray
-For example, CuPy holds the reference after constructing the object with `asarray` function only if the original has been a CuPy array as well. Numba itself provides two different options for constructing the view. One holds the reference, the other does not.
+// https://docs.cupy.dev/en/stable/reference/generated/cupy.asarray.html
+For example, CuPy holds the reference after constructing the object with `asarray` function only if the original has been a CuPy array as well. Numba itself provides two different options for constructing the view. One holds the reference, the other does not. #cite(<c_cupy-asarray>)
 
 #figure(
   table(
@@ -174,7 +172,9 @@ For example, CuPy holds the reference after constructing the object with `asarra
 
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html#dlpack-an-in-memory-tensor-structure
 // https://dmlc.github.io/dlpack/latest/
-As demonstrated in the previous sections, both the Buffer protocol and the CUDA Array interface have significant limitations when considered as a universal standard for heterogeneous computing. The Buffer protocol is strictly confined to CPU-accessible host memory, while the CUDA Array interface is specifically designed for GPU memory and lacks a standardized mechanism for memory management and object lifetime. To address these exact shortcomings, the Python Array API Standard explicitly recommends DLPack as the primary data interchange protocol.
+// https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html#dlpack-an-in-memory-tensor-structure
+// https://dmlc.github.io/dlpack/latest/
+As demonstrated in the previous sections, both the Buffer protocol and the CUDA Array interface have significant limitations when considered as a universal standard for heterogeneous computing. The Buffer protocol is strictly confined to CPU-accessible host memory, while the CUDA Array interface is specifically designed for GPU memory and lacks a standardized mechanism for memory management and object lifetime. To address these exact shortcomings, the Python Array API Standard explicitly recommends DLPack as the primary data interchange protocol. #mcite(<c_array-api-standard>, <c_dlpack>)
 
 DLPack is an open, in-memory tensor structure designed specifically to facilitate the sharing of tensors across different hardware devices and frameworks. Unlike its predecessors, DLPack fulfills all the strict requirements established by the Array API Standard (as outlined in @array_standard_interchange_requirements_table). It provides a stable C ABI, allows for zero-copy semantics, and comprehensively supports a wide array of hardware devices, including CPUs, CUDA GPUs, ROCm, OpenCL, and Vulkan, among others.
 
@@ -185,13 +185,14 @@ At the C-level, the specification revolves around two primary structures: DLTens
 To resolve the ownership and lifetime ambiguities present in protocols like the CUDA Array interface, DLPack relies on the DLManagedTensor structure. This struct acts as a wrapper around the DLTensor, adding a manager_ctx pointer and, crucially, a deleter function. When a producer exports an array, it provides this deleter callback. Once the consumer is finished utilizing the zero-copy view, it is explicitly obligated to call the deleter. This mechanism ensures that the original producer is safely notified to release or free the underlying memory without requiring the user to manually manage Python object references.
 
 // https://dmlc.github.io/dlpack/latest/_images/DLPack_diagram.png
+// https://dmlc.github.io/dlpack/latest/_images/DLPack_diagram.png
 #figure(
   image("assets/DLPack_diagram.png", width: 85%),
   caption: [Visual representation of the DLPack data structures, illustrating the relationship between the tensor metadata and the managed memory context.],
 ) <dlpack_architecture_diagram>
 
 // https://dmlc.github.io/dlpack/latest/python_spec.html
-On the Python side, DLPack is implemented through a standardized interface consisting of two special methods that producer objects must expose: `__dlpack_device__` and `__dlpack__`.
+On the Python side, DLPack is implemented through a standardized interface consisting of two special methods that producer objects must expose: `__dlpack_device__` and `__dlpack__`. #cite(<c_dlpack-python-spec>)
 
 The `__dlpack_device__(self)` method returns a two-element tuple containing the device type (represented as an integer enum) and the device ID. This allows a consumer to inspect where the data resides before attempting to construct a view or perform operations, enabling it to raise an error early if the target device is unsupported.
 
@@ -228,11 +229,11 @@ The following subsections describe the work undertaken to add Buffer protocol an
 === Prior state of DLPack support
 
 // https://gitlab.com/tnl-project/pytnl/-/commit/4db8e9e15c3a32fa260f369899d542cb57fc71e6
-Prior to this work, PyTNL already provided an implementation of the DLPack protocol. DLPack support was introduced alongside the original CUDA device bindings for PyTNL's array types, as DLPack was the primary mechanism through which other Python libraries could consume GPU-resident arrays. Consequently, implementing DLPack from scratch was not within the scope of this thesis, and the existing implementation served as a foundation upon which the remaining protocols were built.
+Prior to this work, PyTNL already provided an implementation of the DLPack protocol. DLPack support was introduced alongside the original CUDA device bindings for PyTNL's array types, as DLPack was the primary mechanism through which other Python libraries could consume GPU-resident arrays. Consequently, implementing DLPack from scratch was not within the scope of this thesis, and the existing implementation served as a foundation upon which the remaining protocols were built. #cite(<c_pytnl-dlpack-commit>)
 
 // https://github.com/numba/numba/issues/4719
 // https://github.com/NVIDIA/numba-cuda/issues/122
-Although DLPack is the recommended interchange protocol and satisfies all the requirements outlined in @array_standard_interchange_requirements_table, its adoption among consumer libraries was not yet complete at the time this work began. Numba, the primary JIT compilation framework used for evaluation in this thesis (introduced in @numba_introduction), did not support consuming arrays through DLPack in either its CPU or CUDA backends. DLPack reading had been a long-planned feature in both the core Numba project and its `numba-cuda` module, but neither had shipped an implementation.
+Although DLPack is the recommended interchange protocol and satisfies all the requirements outlined in @array_standard_interchange_requirements_table, its adoption among consumer libraries was not yet complete at the time this work began. Numba, the primary JIT compilation framework used for evaluation in this thesis (introduced in @numba_introduction), did not support consuming arrays through DLPack in either its CPU or CUDA backends. DLPack reading had been a long-planned feature in both the core Numba project and its `numba-cuda` module, but neither had shipped an implementation. #mcite(<c_numba-dlpack-issue>, <c_numba-cuda-dlpack-issue>)
 
 This limitation necessitated implementing the two remaining protocols. The Python Buffer protocol was required to enable Numba's CPU-side JIT compiler (`@jit`, `@vectorize`) to operate on PyTNL arrays residing in host memory. The CUDA Array interface was required to enable Numba's CUDA backend (`@cuda.jit`) to launch kernels directly on PyTNL arrays residing in device memory.
 
@@ -240,13 +241,13 @@ This limitation necessitated implementing the two remaining protocols. The Pytho
 
 // https://github.com/NVIDIA/numba-cuda/pull/790
 // https://github.com/NVIDIA/numba-cuda/releases/tag/v0.28.1
-The landscape shifted during the course of this work. The `numba-cuda` project merged support for consuming DLPack tensors in March 2026, which rendered the CUDA Array interface implementation redundant for the Numba use case. With DLPack already present in PyTNL and now consumable by `numba-cuda`, the CUDA Array interface no longer provided a unique capability.
+The landscape shifted during the course of this work. The `numba-cuda` project merged support for consuming DLPack tensors in March 2026, which rendered the CUDA Array interface implementation redundant for the Numba use case. With DLPack already present in PyTNL and now consumable by `numba-cuda`, the CUDA Array interface no longer provided a unique capability. #mcite(<c_numba-cuda-dlpack-pr>, <c_numba-cuda-v0281>)
 
 The CPU-side Numba JIT, however, still does not support DLPack as an input mechanism. The Python Buffer protocol therefore remains the only viable path for enabling JIT-compiled functions on host-memory arrays without an explicit copy or using another third-party library as an intermediary.
 
 // https://gitlab.com/tnl-project/pytnl/-/merge_requests/74
 // https://gitlab.com/tnl-project/pytnl/-/merge_requests/73
-Given these developments, only the Python Buffer protocol implementation was ultimately merged into the PyTNL repository. The CUDA Array interface implementation, while functional, was not included in the final codebase as it offered no remaining advantage over the pre-existing DLPack support.
+Given these developments, only the Python Buffer protocol implementation was ultimately merged into the PyTNL repository. The CUDA Array interface implementation, while functional, was not included in the final codebase as it offered no remaining advantage over the pre-existing DLPack support. #mcite(<c_pytnl-buffer-mr>, <c_pytnl-cai-mr>)
 
 === Technical remarks
 
@@ -419,10 +420,10 @@ The kernel is launched over a _grid_ of threads organized into _blocks_. Each th
 
 The ability to write CUDA kernels in Python and launch them directly on PyTNL device arrays is perhaps the most significant capability unlocked by the protocol implementations. Users can implement custom GPU algorithms --- stencil operations, reductions, or application-specific kernels --- without writing any #cpp or CUDA C code, while still operating on the same memory that PyTNL manages.
 
-The following example demonstrates a non-trivial access pattern where each thread reads from three neighbouring positions, as is typical in finite difference stencil computations:
+The following example demonstrates a non-trivial access pattern where each thread reads from three neighboring positions, as is typical in finite difference stencil computations:
 
 #code1(
-  [A 1D stencil kernel demonstrating neighbour access patterns on a PyTNL CUDA array. The bounds check `0 < i < N - 1` excludes boundary elements that lack a full neighbourhood.],
+  [A 1D stencil kernel demonstrating neighbor access patterns on a PyTNL CUDA array. The bounds check `0 < i < N - 1` excludes boundary elements that lack a full neighborhood.],
   <numba_stencil_example>,
   ```python
   @cuda.jit
@@ -441,7 +442,7 @@ The following example demonstrates a non-trivial access pattern where each threa
   ```,
 )
 
-This goes beyond simple element-wise operations and demonstrates that the exported buffer is fully addressable from within the Numba-compiled kernel, including relative indexing over neighbouring elements. The compiled kernel has the same access to the raw memory as a hand-written CUDA C kernel would.
+This goes beyond simple element-wise operations and demonstrates that the exported buffer is fully addressable from within the Numba-compiled kernel, including relative indexing over neighboring elements. The compiled kernel has the same access to the raw memory as a hand-written CUDA C kernel would.
 
 === Sparse matrix access
 
@@ -450,16 +451,17 @@ So far, the examples and focus have been only on dense, multidimensional, arrays
 ==== CSR Format
 
 // https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html
-The Compressed Sparse Row (CSR) format is one of the most common sparse matrix representations. Instead of of storing all the elements in a two-dimensional array, it uses three separate one-dimensional arrays to represent only the non-zero values and their positions:
+The Compressed Sparse Row (CSR) format is one of the most common sparse matrix representations. Instead of of storing all the elements in a two-dimensional array, it uses three separate one-dimensional arrays to represent only the non-zero values and their positions: #cite(<c_scipy-csr-matrix>)
 
 - `VALUES` array contains all the non-zero values sorted from top to bottom and left to right. Matrix of $N$ non-zero elements will have `VALUES` of length $N$.
 - `COLUMN_INDICES` array contains the column index record for each value in `VALUES`. It has the same length as `VALUES`.
 - `ROW_POINTERS` array specifies the distribution of values across rows. Each entry corresponds to one row and contains the index in `VALUES`, and `COLUMN_INDICES`, where the row starts. If matrix consists of $M$ rows, `ROW_POINTERS` will have length $M + 1$, with the last entry pointing to the end of the `VALUES` array.
 
 // https://docs.nvidia.com/nvpl/latest/sparse/storage_format/sparse_matrix.html#compressed-sparse-row-csr
+// https://docs.nvidia.com/nvpl/latest/sparse/storage_format/sparse_matrix.html#compressed-sparse-row-csr
 #figure(
   image("assets/csr_example.png", width: 85%),
-  caption: [Illustrative example of the CSR format for a sparse matrix.],
+  caption: [Illustrative example of the CSR format for a sparse matrix. #cite(<c_nvpl-sparse>)],
 )
 
 ==== Benefits of array backed data structures
@@ -495,7 +497,7 @@ As the CSR matrix still uses dense arrays under the hood, it can still benefit f
 
 // https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html
 // https://docs.cupy.dev/en/stable/reference/generated/cupyx.scipy.sparse.csr_matrix.html
-This approach does come with a usability cost: the user must understand the internal data structure and is limited to operations that touch only one backing array at a time. However, it requires almost no additional effort on the library side — public exposure of the internal arrays is sufficient, and libraries like SciPy and CuPy already provide this. In general, any data structure backed by dense arrays can benefit from the protocols to some extent, even if it is not strictly array-like in its public API.
+This approach does come with a usability cost: the user must understand the internal data structure and is limited to operations that touch only one backing array at a time. However, it requires almost no additional effort on the library side — public exposure of the internal arrays is sufficient, and libraries like SciPy and CuPy already provide this. In general, any data structure backed by dense arrays can benefit from the protocols to some extent, even if it is not strictly array-like in its public API. #mcite(<c_scipy-csr-matrix>, <c_cupy-csr-matrix>)
 
 === Performance evaluation <protocol_performance_evaluation>
 

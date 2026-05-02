@@ -6,7 +6,7 @@
 == Template Numerical Library
 
 // https://doi.org/10.14311/AP.2021.61.0122
-The Template Numerical Library (TNL) is a #cpp library for numerical simulations that aims to combine high computational efficiency with a user-friendly and consistent programming interface. Its design targets modern parallel hardware, including multi-core CPUs, GPUs, and distributed-memory systems, while avoiding the overheads that often follow from traditional object-oriented abstractions. Instead, TNL relies on #cpp templates and their specialization mechanisms to generate architecture-specific code at compile time, making it possible to keep a unified interface without sacrificing performance.
+The Template Numerical Library (TNL) is a #cpp library for numerical simulations that aims to combine high computational efficiency with a user-friendly and consistent programming interface. Its design targets modern parallel hardware, including multi-core CPUs, GPUs, and distributed-memory systems, while avoiding the overheads that often follow from traditional object-oriented abstractions. Instead, TNL relies on #cpp templates and their specialization mechanisms to generate architecture-specific code at compile time, making it possible to keep a unified interface without sacrificing performance. #cite(<c_Oberhuber_Klinkovský_Fučík_2021>)
 
 This design is particularly important for GPU computing, where efficient implementations require careful control over memory layout, data transfer, and parallel execution patterns. In many numerical applications, especially those involving sparse matrices, iterative solvers, or mesh-based discretizations, adapting algorithms to accelerators is not a minor extension but a substantial redesign. TNL addresses this difficulty by providing data structures and algorithms that are implemented with these architectural differences already in mind.
 
@@ -31,12 +31,12 @@ What may prove challenging is that as part of its philosophy, nanobind does not 
 // https://developer.nvidia.com/cuda
 // source for "proprietary" https://www.theregister.com/2021/11/10/nvidia_cuda_silicon/
 // https://docs.nvidia.com/cuda/cuda-programming-guide/01-introduction/introduction.html
-The Compute Unified Device Architecture (CUDA) is a proprietary and closed-source parallel computing platform introduced in 2006 developed by the NVIDIA Corporation that allows software to use GPUs for accelerated computing. The toolkit allows developers to write GPU accelerated applications in numerous languages including C, #cpp or Python and is adopted by many existing libraries and frameworks like PyTorch.
+The Compute Unified Device Architecture (CUDA) is a proprietary and closed-source parallel computing platform introduced in 2006 developed by the NVIDIA Corporation that allows software to use GPUs for accelerated computing. The toolkit allows developers to write GPU accelerated applications in numerous languages including C, #cpp or Python and is adopted by many existing libraries and frameworks like PyTorch. #mcite(<c_cuda-programming-guide>, <c_cuda-platform>, <c_theregister-cuda-silicon>)
 
 === Expected heterogeneous system
 
 // https://docs.nvidia.com/cuda/cuda-programming-guide/01-introduction/programming-model.html
-The CUDA programming model is not strictly about GPU execution, in fact it assumes a heterogeneous system where the CPU (host) and GPU (device) work together. Both CPU and GPU have their own memory spaces called _host memory_ and _device memory_, respectively. In some systems, the memory may be unified and conversely some systems may have multiple GPUs or even CPUs, each with their own memory space, but for simplicity, the works only considers the most common case of a single CPU and a single GPU with separate memory spaces.
+The CUDA programming model is not strictly about GPU execution, in fact it assumes a heterogeneous system where the CPU (host) and GPU (device) work together. Both CPU and GPU have their own memory spaces called _host memory_ and _device memory_, respectively. In some systems, the memory may be unified and conversely some systems may have multiple GPUs or even CPUs, each with their own memory space, but for simplicity, the works only considers the most common case of a single CPU and a single GPU with separate memory spaces. #cite(<c_cuda-programming-guide>)
 
 CUDA applications execute code on the GPU but they always start on the CPU. Code running on the CPU is called host code and typically handles the orchestration of the application, memory transfers, starting GPU execution and processing the results of it. 
 
@@ -45,10 +45,10 @@ On the other hand, code running on the GPU is called device code. For historical
 ==== CUDA threads and blocks
 
 // https://docs.nvidia.com/cuda/cuda-programming-guide/01-introduction/programming-model.html#thread-blocks-and-grids
-As mentioned, kernels are executed by many threads in parallel. These threads are organized into blocks and blocks are organized into grids. Both blocks and grids can have one, two, or three dimensions which can simplify mapping of the threads to data structures. But in a grid, all thread blocks need to have the same number of threads and dimensions. 
+As mentioned, kernels are executed by many threads in parallel. These threads are organized into blocks and blocks are organized into grids. Both blocks and grids can have one, two, or three dimensions which can simplify mapping of the threads to data structures. But in a grid, all thread blocks need to have the same number of threads and dimensions. #cite(<c_cuda-programming-guide>)
 
 #figure(
-    caption: [Grid of Thread Blocks. Each arrow represents a thread (the number of arrows is not representative of actual number of threads)..],
+    caption: [Grid of Thread Blocks. Each arrow represents a thread (the number of arrows is not representative of actual number of threads). #cite(<c_cuda-programming-guide>)],
     image("assets/cuda_grid_threads.png"),
 ) <cuda_thread_grid_diagram>
 
@@ -62,6 +62,7 @@ During execution, CUDA assigns the blocks to available streaming multiprocessors
 // https://docs.nvidia.com/cuda/cuda-programming-guide/02-basics/nvcc.html
 // https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html
 To utilize GPU with a library like TNL, the code has to be compiled with a compatible compiler that can generate the device code. The NVIDIA CUDA Compiler (`nvcc`) is a typical entry point for compilation of CUDA C/#cpp code as well as parallel thread execution (PTX) assembly code. Compared to traditional compilers, `nvcc` itself is more of a driver that orchestrates the whole compilation process. 
+#mcite(<c_cuda-programming-guide>, <c_cuda-nvcc>)
 
 Source files compiled with `nvcc` can contain both host code and device code. In the initial phase, `nvcc` separates the targets and dispatches their compilation  to the GPU and the host compilers, respectively. For host code, `nvcc` invokes a standard C/#cpp compiler (like `g++`), which needs to be present and accessible on the system. Pure host code is compiled directly, and the calls to GPU code are linked at link-time. 
 
@@ -70,7 +71,7 @@ The GPU compilation process first compiles #cpp device code into _Parallel Threa
 The PTX files are then passed to `ptxas` tool, which generates the final GPU binary code (`cubin`) for specific hardware. This can once again be done multiple times for different targets. Finally, all these targets can be embedded into a single fat binary to support a range of GPU architectures. One of the strengths of the additional PTX layer is that if compatible PTX is present, the GPU driver can JIT compile additional `cubin`s for newer architectures without needing to recompile the original source.
 
 #figure(
-    caption: [`nvcc` compilation workflow with multiple PTX and Cubin architectures.],
+    caption: [`nvcc` compilation workflow with multiple PTX and Cubin architectures. #cite(<c_cuda-programming-guide>)],
     image("assets/nvcc_execution.png")
 ) <nvcc_compilation_diagram>
 

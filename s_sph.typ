@@ -3,13 +3,12 @@
 
 == TNL-SPH
 
-// https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5671636
-
 // TODO: Consider adding citations for the original SPH papers (Lucy 1977, Gingold & Monaghan 1977)
 // R. A. Gingold and J. J. Monaghan. Smoothed particle hydrodynamics: theory and application to non-spherical stars. Monthly Notices of the Royal Astronomical Society, 181:375–389, 1977.
 Smoothed Particle Hydrodynamics (SPH) is a fully Lagrangian mesh-free method originally developed for astrophysical simulations, which has since been widely adopted in engineering, geophysics, and computer graphics for its ability to handle complex geometries, discontinuities, and free surfaces.
 
-TNL-SPH @halada2025tnlsph is an open-source SPH implementation developed as a submodule of the Template Numerical Library. TNL-SPH focuses on fluid flow modeling, and hydrodynamic problems in general, while providing a relatively high level, user-friendly interface, just like the rest of TNL. The library is designed with easy access to and extension of the main time loop in mind, allowing users to insert custom functions between any two operations in the loop.
+// https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5671636
+TNL-SPH is an open-source SPH implementation developed as a submodule of the Template Numerical Library. TNL-SPH focuses on fluid flow modeling, and hydrodynamic problems in general, while providing a relatively high level, user-friendly interface, just like the rest of TNL. The library is designed with easy access to and extension of the main time loop in mind, allowing users to insert custom functions between any two operations in the loop. #cite(<c_halada2025tnlsph>)
 
 The existing examples already ship with Python scripts that prepare the simulation configuration, run the simulation, and post-process the results. That makes TNL-SPH an ideal demonstration case for this work. If the whole user flow could be moved to Python --- with no manual compilation step and no subprocess launching --- that would be a significant improvement in the user experience and accessibility of the library.
 
@@ -17,12 +16,13 @@ The existing examples already ship with Python scripts that prepare the simulati
 
 ==== Current workflow <sph_current_workflow>
 
-The native TNL-SPH workflow, as described in the paper @halada2025tnlsph and its accompanying examples, involves three configuration files per simulation case. A compile-time configuration header `config.h` selects the device, particle representation, SPH model, and all of its associated template parameters --- kernel function, diffusive term, viscous term, equation of state, boundary condition type, time stepping strategy, and integration scheme. A runtime configuration file `config.ini` specifies physical and numerical parameters such as density, speed of sound, viscosity, CFL number, and paths to initial particle distributions. Finally, `case.h` contains the #cpp `main()` function that creates the solver instance and defines the simulation time loop.
+// https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5671636
+The native TNL-SPH workflow, as described in the paper and its accompanying examples, involves three configuration files per simulation case. A compile-time configuration header `config.h` selects the device, particle representation, SPH model, and all of its associated template parameters --- kernel function, diffusive term, viscous term, equation of state, boundary condition type, time stepping strategy, and integration scheme. A runtime configuration file `config.ini` specifies physical and numerical parameters such as density, speed of sound, viscosity, CFL number, and paths to initial particle distributions. Finally, `case.h` contains the #cpp `main()` function that creates the solver instance and defines the simulation time loop. #cite(<c_halada2025tnlsph>)
 
 The time loop in `case.h` is structured as a sequence of individual phase calls, each corresponding to a distinct step of the SPH algorithm. This is deliberate: it allows users to insert custom logic between any two phases of the simulation.
 
 #code1(
-  [The native #cpp time loop from a TNL-SPH example (adapted from the paper's Appendix~A @halada2025tnlsph). Each simulation phase is a separate method call, and the loop is explicitly designed for user extensibility.],
+  [The native #cpp time loop from a TNL-SPH example (adapted from the paper's Appendix~A). Each simulation phase is a separate method call, and the loop is explicitly designed for user extensibility. #cite(<c_halada2025tnlsph>)],
   <sph_native_case_h>,
   ```cpp
   #include "template/config.h"
@@ -75,7 +75,7 @@ The compile-time template configuration described in @sph_current_workflow creat
 To illustrate the scale of the problem, @sph_config_h shows how a single variant is assembled in `config.h`, and @sph_template_axes lists all available configuration axes:
 
 #code1(
-  [Compile-time configuration of a TNL-SPH simulation variant in `config.h` (adapted from the paper's Appendix~A @halada2025tnlsph). Each `using` declaration selects a specific implementation for one template axis; the final `Model` and `Simulation` types compose all choices into a single #cpp type.],
+  [Compile-time configuration of a TNL-SPH simulation variant in `config.h` (adapted from the paper's Appendix~A). Each `using` declaration selects a specific implementation for one template axis; the final `Model` and `Simulation` types compose all choices into a single #cpp type. #cite(<c_halada2025tnlsph>)],
   <sph_config_h>,
   ```cpp
   class SPHParams {
