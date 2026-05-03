@@ -212,7 +212,7 @@ assert vec == [2.0, 4.0, 6.0, 8.0, 10.0]
 ```,
 )
 
-=== Numba `@cfunc`
+=== Numba `@cfunc` <numba_cfunc_introduction>
 
 The `@cfunc` decorator serves a different purpose. Instead of producing a Python-callable function that happens to execute compiled code internally, it generates a native callback with an explicit C-compatible signature. The signature must be specified up front, and the resulting object exposes both a callable wrapper and, more importantly for interoperability, the address of the compiled function. This makes `@cfunc` very interesting as using the pointer directly could completely sidestep Python and offer a path to native callback performance.
 

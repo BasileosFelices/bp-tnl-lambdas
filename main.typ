@@ -93,12 +93,12 @@
 
 #include "s_transfer_protocols.typ"
 
-= Demonstration
+= PyTNL expansion
 
 #include "s_sph.typ"
 
-== PDLP Solver
+// == PDLP Solver
 
-#todo(position: "inline")[How to include PDLP. It doesn't really tie in with the rest of the thesis, maybe try CVXPy and show the compatibility?]
+// #todo(position: "inline")[How to include PDLP. It doesn't really tie in with the rest of the thesis, maybe try CVXPy and show the compatibility?]
 
 #include "s_julia.typ"
