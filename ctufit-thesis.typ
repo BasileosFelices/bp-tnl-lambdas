@@ -58,7 +58,7 @@
   )
 }
 
-#let cpp = box[C#h(-0.1em)++\u{2060}]
+#let cpp = box[C#h(-0.05em)++\u{2060}]
 
 #let mcite(..labels) = {
   "[" 
