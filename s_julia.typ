@@ -7,13 +7,22 @@ Julia programming language is a dynamic language that aims to combine high-level
 
 These properties make Julia an interesting candidate for a future TNL frontend. In particular, Julia's native compilation model suggests that some of the difficulties encountered in PyTNL, especially around integrating user-defined code efficiently, may be less severe in a Julia-based design. At the same time, no jTNL package existed prior to this work and such a package could not be implemented within the scope of this thesis.
 
-This chapter therefore does not present an implemented binding layer. Its goal is instead to evaluate technically plausible strategies for exposing TNL in Julia, identify their main constraints, and propose a realistic starting direction for future work.
+This chapter therefore does not present an implemented binding layer. Its goal is instead to compare technically plausible strategies for exposing TNL in Julia, identify their main constraints, and narrow the design space to the options that appear most realistic for future work.
 
 == Aim and evaluation criteria
 
 The central question of this chapter is not whether Julia can interoperate with native code in general, but which integration strategy appears most compatible with the specific requirements of TNL. These requirements follow directly from the earlier discussion of PyTNL and TNL itself.
 
-In particular, a useful jTNL design should minimize the need to flatten TNL into a separate C API, preserve enough of the original #cpp type structure to expose selected classes and templates in a natural way, provide a plausible path for passing user-defined functions into native code, fit the existing wrapper-oriented architecture already explored in PyTNL, and remain compatible with a codebase that targets both CPU and CUDA backends. Maintenance status and build complexity of the candidate libraries are also important because a technically elegant but abandoned solution would not be a realistic basis for a new project.
+In particular, a useful jTNL design should:
+
++ minimize the need to flatten TNL into a separate C API,
++ preserve enough of the original #cpp type structure to expose selected classes and templates in a natural way,
++ provide a plausible path for passing user-defined functions into native code,
++ fit the existing wrapper-oriented architecture already explored in PyTNL,
++ remain compatible with a codebase that targets both CPU and CUDA backends,
++ and rely on tooling whose maintenance status and build complexity make it a realistic basis for a new project.
+
+The comparison in this chapter is therefore qualitative. It is based on the documented capabilities of the surveyed libraries, their maintenance status, and their apparent architectural fit with the requirements of TNL. In this sense, the chapter aims to identify which directions appear promising enough to justify future implementation work.
 
 == Native capabilities
 
@@ -133,7 +142,7 @@ The second group is more attractive conceptually because it attempts to preserve
 
 In principle, this is appealing because it resembles an extension of Julia's own foreign-function interface from C to #cpp. A user could imagine loading TNL headers and libraries and experimenting with selected parts of the API without first building a separate wrapper package.
 
-For this thesis, however, `Cxx.jl` is not a realistic basis for a new jTNL project. Its implementation depends heavily on Clang, Julia staged functions, and `llvmcall` to build and compile #cpp expressions on demand. #cite(<c_cxxjl_impl>) More importantly, the project is currently archived and only supports substantially older Julia versions. Even if the direct #cpp model is conceptually attractive, its current maintenance state effectively disqualifies it.
+For this thesis, however, `Cxx.jl` is not a realistic basis for a new jTNL project. Its implementation depends heavily on Clang, Julia staged functions, and `llvmcall` to build and compile #cpp expressions on demand. #cite(<c_cxxjl_impl>) That architecture may be attractive for interactive exploration, but it appears poorly matched to a codebase whose build depends on conventional compilation workflows and CUDA-related tooling. More importantly, the project is currently archived and only supports substantially older Julia versions. Even if the direct #cpp model is conceptually attractive, its current maintenance state effectively disqualifies it.
 
 ==== `CxxWrap.jl`
 
@@ -144,11 +153,11 @@ For TNL, this wrapper-oriented architecture is the main advantage. It preserves 
 
 This does not remove the need to choose which concrete type combinations should be exported. A future jTNL would still need to decide which scalar types, dimensions, devices, or array specializations to instantiate and expose. Nevertheless, this restriction is already familiar from PyTNL and appears easier to manage than designing custom dispatch model for correct template specialization.
 
-For higher-order functions, `CxxWrap.jl` is particularly interesting because it offers two conceptually different callback paths. The more ergonomic option is `jlcxx::JuliaFunction`, which allows native code to invoke Julia functions obtained either by name or from a Julia function object passed as an argument. This appears attractive for convenience, but once again, it also implies boxing and dynamic conversion on each call, which makes it a questionable choice for performance-sensitive inner loops.
+For higher-order functions, `CxxWrap.jl` is particularly interesting because it offers two conceptually different callback paths. The more ergonomic option is `jlcxx::JuliaFunction`, which allows native code to invoke Julia functions obtained either by name or from a Julia function object passed as an argument. This is attractive for convenience, but it also relies on boxing and dynamic conversion of arguments and return values, which faces the already discussed performance limitations.
 
 The lower-level alternative is to use `@safe_cfunction` and pass a C-compatible function pointer into the native layer. This is less convenient, but it appears to be the more plausible approach for callback-heavy or performance-sensitive code. It resembles the `@cfunc`-based path discussed for Python, while avoiding the need for an additional third-party JIT tool analogous to Numba on the Julia side.
 
-Under the assumptions of this thesis, `CxxWrap.jl` therefore appears to be the most defensible starting point for a future jTNL design. This conclusion is not based on a prototype implementation, but on architectural fit: the library is maintained, preserves an explicit native wrapper layer, can expose selected #cpp abstractions directly, and offers callback mechanisms that are relevant to the higher-order use cases discussed in earlier chapters.
+These advantages come with a non-trivial engineering cost. A jTNL based on `CxxWrap.jl` would, similarly to PyTNL, require a dedicated native wrapper library. Even so, among the surveyed maintained options it appears to offer the strongest architectural fit for a future jTNL design.
 
 === Indirect reuse strategy
 
@@ -163,12 +172,10 @@ From the perspective of jTNL, this makes `PythonCall.jl` an attractive prototypi
 
 The trade-off is that this route inherits all limitations already present in PyTNL and adds another language boundary on top of them. As a result, it should not be understood as a route to a high-performance or especially idiomatic Julia binding. It is better viewed as a pragmatic reuse strategy for early access and experimentation.
 
-== Recommended direction and open risks
+== Recommended direction
 
 The analysis above suggests three different levels of ambition. A C-based approach built with tools such as `CBinding.jl` or `Clang.jl` appears feasible, but only at the cost of designing and maintaining a separate compatibility layer that would flatten a substantial part of TNL's original #cpp interface. Reusing PyTNL through `PythonCall.jl` appears much cheaper initially, but mainly as a prototyping technique rather than as a long-term frontend design.
 
-Among the surveyed options, `CxxWrap.jl` appears to offer the best balance between realism and fidelity to TNL's architecture. It retains an explicit native wrapper layer, aligns well with the style of bindings already explored in PyTNL, and seems compatible with exposing selected template instantiations and callback-oriented interfaces without forcing the entire project through a C-only boundary.
+Among the surveyed options, `CxxWrap.jl` appears to offer the strongest balance between realism and fidelity to TNL's architecture. It retains an explicit native wrapper layer, aligns well with the style of bindings already explored in PyTNL, and seems compatible with exposing selected template instantiations and callback-oriented interfaces without forcing the entire project through a C-only boundary.
 
-This recommendation must, however, be read together with several open risks. First, no prototype was implemented in this thesis, so the actual engineering cost of a jTNL package remains unknown. Second, the performance characteristics of the different callback paths were not measured, so the preference for C-compatible function-pointer callbacks remains a hypothesis. Finally, integration with CUDA-oriented workflows and with Julia's broader GPU ecosystem remains unresolved.
-
-For these reasons, the main contribution of this chapter is not a finished binding design, but a narrowing of the design space. Based on the current Julia ecosystem and the needs of TNL, `CxxWrap.jl` appears to be the most promising foundation for future work, while `PythonCall.jl` remains a useful fallback for rapid experimentation and C-oriented tools remain relevant only if a deliberately reduced C interface is acceptable.
+For these reasons, `CxxWrap.jl` appears to be the most suitable foundation for any future Julia frontend to TNL. At the same time, `PythonCall.jl` remains a practical option for rapid experimentation.
