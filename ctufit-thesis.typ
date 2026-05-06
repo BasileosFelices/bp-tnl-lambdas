@@ -27,19 +27,24 @@
     lang-outset: lang-outset,
     languages: codly-languages,
     zebra-fill: none,
+    breakable: true
   )
   codly(number-format: if line-numbers { numbering.with("1") } else { none })
-  
+
   [
+    #show figure: set block(breakable: true)
     #figure(
+      block(
+        breakable: true,
+        local(
+          ..pass,
+          content
+        ),
+      ),
       caption: caption,
       kind: raw,
       supplement: "Code listing",
       placement: placement,
-      local(
-        ..pass,
-        content
-      ),
     ) #label
   ]
 }
@@ -719,6 +724,8 @@
       set text(fill: black)
       let number = counter(heading).display(it.numbering)
       if it.level == 1 {
+        // Ensure chapter headings start at the top of a page without adding blank pages.
+        pagebreak(weak: true)
         if twosided {
           // fix this to leave empty pages
           // pagebreak(to: "odd")
@@ -775,7 +782,33 @@
     }
 
     show figure: it => {
-      let b = {
+      let b = if it.kind == raw {
+        block(
+          breakable: true,
+          width: 100%,
+          {
+            v(it.gap) 
+            it.body
+            v(it.gap) 
+            it.caption
+          },
+        )
+      } else if it.kind == table {
+        box(
+          width: 100%,
+          grid(
+            // align: left,
+            rows: (auto),
+            row-gutter: it.gap,
+            it.caption,
+            {
+              h(1fr)
+              box(it.body)
+              h(1fr)
+            },
+          )
+        )
+      } else {
         box(
           width: 100%,
           grid(
@@ -806,6 +839,7 @@
       // https://github.com/typst/typst/issues/311
     }
     show figure: set align(left)
+    show figure.where(kind: table): set figure.caption(position: top)
     set figure.caption(separator: [ ])
     set figure(numbering: "1.1")
     show figure.caption: it => context {
