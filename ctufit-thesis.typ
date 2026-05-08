@@ -624,25 +624,27 @@
       target: figure.where(kind: raw),
       title: lol-label
     )
-    v(1.5em) // TODO
+    // v(1.5em) // TODO
+    pagebreak()
     outline(
       target: figure.where(kind: table),
       title: list-of-tables-label,
     )
-    v(1.5em)
+    pagebreak()
+    // v(1.5em)
     outline(
       target: figure.where(kind: image),
       title: list-of-images-label,
     )
-    pagebreak()
+    // pagebreak()
   }
 
-  heading(abbreviation-label, outlined: false)
-  show: make-glossary
-  import "acronyms.typ": entry-list
-  register-glossary(entry-list)
-  // TODO user-print-title
-  print-glossary(entry-list)
+  // heading(abbreviation-label, outlined: false)
+  // show: make-glossary
+  // import "acronyms.typ": entry-list
+  // register-glossary(entry-list)
+  // // TODO user-print-title
+  // print-glossary(entry-list, show-all: true)
 
   let chapter-heading-below = 27.5mm
   show heading: set block(below: 1.2em) // = default par spacing

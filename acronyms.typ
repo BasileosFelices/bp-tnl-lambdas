@@ -36,4 +36,22 @@
     plural: "PyTNL",
     long: "Python bindings for TNL",
   ),
+  (
+    key: "sph",
+    short: "SPH",
+    plural: "SPH",
+    long: "Smoothed Particle Hydrodynamics",
+  ),
+  (
+    key: "tnl-sph",
+    short: "TNL-SPH",
+    plural: "TNL-SPH",
+    long: "TNL-based SPH solver",
+  ),
+  (
+    key: "dlpack",
+    short: "DLPack",
+    plural: "DLPack",
+    long: "Deep Learning Pack",
+  )
 )
