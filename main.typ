@@ -2,8 +2,6 @@
 #import "@preview/fletcher:0.5.7" as fletcher: diagram, edge, node
 #import "@preview/dashy-todo:0.1.3": todo
 
-#let cpp = box[C#h(-0.1em)++\u{2060}]
-
 // TODO
 #let acknowledgment = [
   TODO: Poděkování
@@ -17,11 +15,11 @@
 ]
 
 #let abstract-ENG = [
-  TODO
+  This bachelors thesis focuses on exploring ways to expand the existing Python bindings for the Template Numerical Library (TNL). The goal was to design and implement an interface for TNL data structures that would allow usage of user-defined Python functions without sacrificing native performance.  The work first analyzes callback-based bindings of TNL higher-order functions through Nanobind and shows that ordinary Python callables are unsuitable for performance-critical execution because repeated crossings of the Python-C++ boundary introduce prohibitive overhead. The thesis therefore implements direct memory access for TNL arrays via the Python Buffer Protocol and DLPack. These protocols allow JIT-compiled CPU functions and CUDA kernels to operate directly on TNL-managed memory, shifting the interface design from callback passing to memory sharing. The approach is evaluated through benchmarks. An extension of the TNL-SPH solver further demonstrates a Python-driven just-in-time plugin system that generates, builds, caches, and loads selected simulation variants on demand. The results indicate that high-performance integration is better built on direct memory access than on emulating native C++ callback interfaces. The thesis briefly assesses possible strategies for a future Julia interface and identifies CxxWrap.jl as the most promising foundation for further development.
 ]
 
 #let abstract-CZE = [
-  TODO
+  Tato bakalářská práce se zabývá možnostmi rozšíření stávajícího rozhraní knihovny Template Numerical Library (TNL) v jazyce Python. Jejím cílem bylo navrhnout a implementovat rozhraní k datovým strukturám TNL, které umožní spouštět uživatelem v Pythonu definované funkce bez ztráty nativního výkonu. Práce nejprve analyzuje napojení funkcí vyššího řádu z TNL zpětným volání Python funkcí pomocí knihovny Nanobind a ukazuje, že provolávání Python objektů není pro výpočetně náročné operace vhodné, protože opakované přechody mezi prostředím Pythonu a C++ přinášejí nepřijatelnou režii. Práce proto implementuje přímý přístup k paměti TNL polí prostřednictvím protokolů Python Buffer Protocol a DLPack. Tyto protokoly umožňují, aby JIT kompilované funkce pro CPU i CUDA kernely pracovaly přímo s pamětí spravovanou v TNL strukturách. Rozhraní tak místo předávání samotných funkcí staví na sdílení paměti. Tento přístup je vyhodnocen pomocí benchmarků. Na rozšíření solveru TNL-SPH je dále předveden just-in-time pluginový systém řízený z Pythonu, který za běhu generuje, překládá, ukládá do cache a načítá vybrané varianty simulace. Výsledky ukazují, že výkonnou integraci je vhodnější stavět na přímém přístupu k paměti než na napodobování nativních callbackových rozhraní C++. V závěru práce jsou stručně posouzeny možné strategie budoucího rozhraní pro jazyk Julia; jako nejslibnější směr dalšího vývoje se přitom jeví vytvoření nového rozhraní s využitím knihovny CxxWrap.jl.
 ]
 
 #show: ctufit-thesis.with(
@@ -41,8 +39,8 @@
   acknowledgment: acknowledgment,
   abstract-CZE: abstract-CZE,
   abstract-ENG: abstract-ENG,
-  keywords-CZE: "TNL, PyTNL, CUDA, Python, C++, Just-in-time kompilace, Nanobind, Numba, Buffer protocol, DLpack, SPH, TNL-SPH, higher-order functions",
-  keywords-ENG: "TNL, PyTNL, CUDA, Python, C++, Just-in-time compilation, Nanobind, Numba, Buffer protocol, DLpack, SPH, TNL-SPH, higher-order functions",
+  keywords-CZE: "Template Numerical Library (TNL), PyTNL, CUDA, Python, C++, Just-in-time (JIT) kompilace, Nanobind, Numba, Buffer protocol, DLpack, SPH, TNL-SPH, higher-order functions",
+  keywords-ENG: "Template Numerical Library (TNL), PyTNL, CUDA, Python, C++, Just-in-time (JIT) compilation, Nanobind, Numba, Buffer protocol, DLpack, SPH, TNL-SPH, higher-order functions",
   thesis-type: "bachelor",
   lang: "english",
   twosided: false,
