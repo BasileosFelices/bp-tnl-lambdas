@@ -1,8 +1,7 @@
 #import "ctufit-thesis.typ": *
 #let cpp = box[C#h(-0.1em)++\u{2060}]
 
-// TODO: The header looks weird in TOC because of the newline, fix
-= Accessing #cpp \ managed memory
+= Accessing #cpp \ managed memory <accessing_cpp_managed_memory_heading>
 
 The previous chapter demonstrated that calling Python functions from #cpp is either impractical or prohibitively slow. These findings motivated the exploration of an alternative approach: rather than passing Python callbacks into the #cpp runtime, the data structures themselves can be exposed in a way that allows user-defined functions to operate on them directly from Python. As the benchmark in @function_calling_from_cpp_benchmark suggests, the dominant performance bottleneck lies in the repeated crossings of the language boundary, so eliminating those crossings is the primary objective.
 
@@ -14,20 +13,20 @@ The three data interchange protocols described in this chapter were selected for
 
 == Python Array API Standard
 
-Python ecosystem currently offers many libraries that offer implementations of multidimensional arrays. Examples include already mentioned NumPy, Polars and CuPy but also libraries more focused like Pytorch or TensorFlow for deep learning. Most importantly, TNL and its `NDArray` fits right in as well.
+Python ecosystem currently offers many libraries that offer implementations of multidimensional arrays. Examples include already mentioned NumPy, Polars and CuPy but also libraries more focused like Pytorch or TensorFlow for deep learning. Most importantly, PyTNL and its `NDArray` fits right in as well.
 
 While the interfaces often share similarities, as they are frequently inspired by NumPy, the historical standard for numerical computing in Python, their subtle inconsistencies make it difficult to write portable code that can seamlessly operate across multiple libraries.
 
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html#dlpack-an-in-memory-tensor-structure
 // https://data-apis.org/array-api/2025.12/purpose_and_scope.html
-Python Array API Standard, whose first version released in 2021, attempts to address this growing fragmentation. The authors' goals however is by no means to make the libraries identical or make them all conform the the NumPy's API. Quite opposite in fact, they openly recognize there are good reasons for the inconsistencies and differences. They specifically list non-CPU device or JIT compilers support as some of the reasons the standard is willing to deviate from the laid ground work by these long existing libraries. #cite(<c_array-api-standard>)
+Python Array API Standard, whose first version released in 2021, attempts to address this growing fragmentation. The authors' goals however is by no means to make the libraries identical or make them all conform to the NumPy's API. Quite opposite in fact, they openly recognize there are good reasons for the inconsistencies and differences. They specifically list non-CPU device or JIT compilers support as some of the reasons the standard is willing to deviate from the laid ground work by these long existing libraries. #cite(<c_array-api-standard>)
 
 That makes the standard highly relevant both to this work and PyTNL itself. Apart from lowering user's learning curve by making the API more familiar. Adhering to the the standard would allows array-consuming libraries, like Numba, to accept PyTNL array-like data structures and run operations on them directly.
 
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html
-The interoperability can be achieved either by Python's duck typing, or, more importantly, through a data exchange mechanism that would allow converting the arrays into others or expose the underlying data directly. Instead of designing its own protocol, the standard states requirements, listed in @array_standard_interchange_requirements_table, the protocol should fulfil and recommends an already existing protocol, along with two possible alternatives. All three protocols are described below.
+The interoperability can be achieved either by Python's duck typing, or, more importantly, through a data exchange mechanism that would allow converting between different array implementations by exposing the underlying data directly. Instead of designing its own protocol, the standard states requirements(@array_standard_interchange_requirements_table) the protocol should fulfil and recommends an already existing protocol, along with two possible alternatives. All three protocols are described below.
 
-For allowing Numba's JIT compiled functions to execute upon the PyTNL's array, the most important requirement is allowing the zero-copy view. Forcing a copy, be it inside the same memory block or worse, from one device memory to another, would likely once again invalidate all the performance gains the function compilation provides in the first place.
+To allow Numba's JIT compiled functions to execute on top of the PyTNL's array, the most important requirement is allowing the zero-copy view. Forcing a copy, be it inside the same memory block or worse, from one device memory to another, would likely once again invalidate all the performance gains the function compilation provides in the first place.
 
 It is of course similarly important to offer multi device support, as the (Py)TNL is built with device support in mind as well. However, this requirement can be be easily circumvented by simply supporting multiple different protocols.
 
@@ -91,14 +90,14 @@ It is of course similarly important to offer multi device support, as the (Py)TN
 
     table.hline(stroke: 1.5pt),
   ),
-  caption: [Array API interchange protocol requirements and rationales.],
+  caption: [Array API interchange protocol requirements and rationales. #cite(<c_array-api-standard>)],
 ) <array_standard_interchange_requirements_table>
 
 == Python Buffer protocol
 
 // https://peps.python.org/pep-3118/
 // https://docs.python.org/3/c-api/buffer.html#bufferobjects
-The modern Python Buffer protocol was introduced via PEP 3118 alongside the transition to Python 3. It was designed to resolve limitations in the older buffer API by adding support for multi-dimensional, non-contiguous arrays and complex data types. Its primary goal is to provide a standardized C-level API that allows different Python objects and native extensions—such as NumPy, PIL, or the standard library's io module—to safely share memory and exchange data without the overhead of copying. #mcite(<c_pep3118>, <c_python-buffer-api>)
+The modern Python Buffer protocol was introduced via PEP 3118 along with the transition to Python 3. It was designed to resolve limitations in the older buffer API by adding support for multi-dimensional, non-contiguous arrays and complex data types. Its primary goal is to provide a standardized C-level API that allows different Python objects and native extensions—such as NumPy, PIL, or the standard library's io module—to safely share memory and exchange data without the copying overhead. #mcite(<c_pep3118>, <c_python-buffer-api>)
 
 At its core, the protocol revolves around the `Py_buffer` C structure. When a consumer wishes to access the underlying memory of a buffer-providing object (the producer), it calls the `PyObject_GetBuffer` function. The producer then populates the `Py_buffer` structure with a pointer to the raw data block (buf) alongside rich metadata necessary to interpret the layout. This metadata includes the data type, item size, shape, strides and a flag indicating whether the memory is read-only.
 
@@ -119,13 +118,13 @@ In terms of memory management and object lifetime, the Buffer protocol enforces 
 // https://numba.pydata.org/numba-doc/0.43.0/cuda/cuda_array_interface.html
 // https://nvidia.github.io/numba-cuda/user/cuda_array_interface.html
 // https://numba.pydata.org/numba-doc/0.39.0/release-notes.html
-CUDA Array interface has been first proposed an implemented by the Numba package in 2018. It allowed Numba to consume any external arrays that provide this interface. The aim however was to propose a solution not only enabling compatibility for Numba, but even in between different packages among themselves. Inspired by NumPy Array interface it aims to allow interoperability between CUDA array-like objects in all projects. #mcite(<c_cuda-array-interface>, <c_numba039-release>)
+CUDA Array interface has been first proposed and implemented by the Numba package in 2018. It allowed Numba to consume any external arrays that provide this interface. The aim however was greater. Inspired by NumPy Array interface it aims to allow interoperability between CUDA array-like objects in all projects. #mcite(<c_cuda-array-interface>, <c_numba039-release>)
 
 The specification itself is rather simple, especially as, compared to the Buffer protocol or the above mentioned NumPy Array interface. It defines only Python-side access. Although C-side access is said to be considered for the future.
 
 // TODO: Make sure the field descriptions are more coherent
 
-As such, the interface defines only a single attribute that should be accessible on the array-like objects named `__cuda_array_interface__`.  It must return a regular Python dictionary with fields described in @cai_fields.
+As such, the interface defines only a single attribute that should be accessible on the array-like objects named `__cuda_array_interface__`.  It must return a regular Python dictionary populated with fields described in @cai_fields.
 
 The consumer simply accesses the underlying buffer by the supplied pointer in the `data` field. Rest of the dictionary should provide all the necessary metadata such as element's `datatype`, `shape`, and others to allow the consumer to work with the data as it sees fit.
 
@@ -176,13 +175,13 @@ For example, CuPy holds the reference after constructing the object with `asarra
 // https://dmlc.github.io/dlpack/latest/
 As demonstrated in the previous sections, both the Buffer protocol and the CUDA Array interface have significant limitations when considered as a universal standard for heterogeneous computing. The Buffer protocol is strictly confined to CPU-accessible host memory, while the CUDA Array interface is specifically designed for GPU memory and lacks a standardized mechanism for memory management and object lifetime. To address these exact shortcomings, the Python Array API Standard explicitly recommends DLPack as the primary data interchange protocol. #mcite(<c_array-api-standard>, <c_dlpack>)
 
-DLPack is an open, in-memory tensor structure designed specifically to facilitate the sharing of tensors across different hardware devices and frameworks. Unlike its predecessors, DLPack fulfills all the strict requirements established by the Array API Standard (as outlined in @array_standard_interchange_requirements_table). It provides a stable C ABI, allows for zero-copy semantics, and comprehensively supports a wide array of hardware devices, including CPUs, CUDA GPUs, ROCm, OpenCL, and Vulkan, among others.
+DLPack is an open, in-memory tensor structure designed specifically to facilitate the sharing of tensors across different hardware devices and frameworks. Unlike its predecessors, DLPack fulfills all the strict requirements established by the Array API Standard (as outlined in @array_standard_interchange_requirements_table). It provides a stable C ABI, allows for zero-copy semantics, and comprehensively supports a wide array of hardware devices, including CPUs, CUDA GPUs, ROCm, OpenCL, and Vulkan.
 
 At the C-level, the specification revolves around two primary structures: DLTensor and DLManagedTensor. The DLTensor structure contains the actual pointer to the data array alongside all the necessary metadata to interpret it, such as the target device, data type, shape, and strides. The fields of the DLTensor structure are summarized in @dlpack_fields.
 
 // TODO: maybe the diagram makes the table redundant, remove?
 
-To resolve the ownership and lifetime ambiguities present in protocols like the CUDA Array interface, DLPack relies on the DLManagedTensor structure. This struct acts as a wrapper around the DLTensor, adding a manager_ctx pointer and, crucially, a deleter function. When a producer exports an array, it provides this deleter callback. Once the consumer is finished utilizing the zero-copy view, it is explicitly obligated to call the deleter. This mechanism ensures that the original producer is safely notified to release or free the underlying memory without requiring the user to manually manage Python object references.
+To resolve the ownership and lifetime ambiguities present in protocols like the CUDA Array interface, DLPack relies on the DLManagedTensor structure. This struct acts as a wrapper around the DLTensor, adding a further metadata and, crucially, a deleter function. When a producer exports an array, it provides this deleter callback. Once the consumer is finished utilizing the zero-copy view, it is explicitly obligated to call the deleter. This mechanism ensures that the original producer is safely notified to release or free the underlying memory without requiring the user to manually manage Python object references.
 
 // https://dmlc.github.io/dlpack/latest/_images/DLPack_diagram.png
 // https://dmlc.github.io/dlpack/latest/_images/DLPack_diagram.png
@@ -233,7 +232,7 @@ Prior to this work, PyTNL already provided an implementation of the DLPack proto
 
 // https://github.com/numba/numba/issues/4719
 // https://github.com/NVIDIA/numba-cuda/issues/122
-Although DLPack is the recommended interchange protocol and satisfies all the requirements outlined in @array_standard_interchange_requirements_table, its adoption among consumer libraries was not yet complete at the time this work began. Numba, the primary JIT compilation framework used for evaluation in this thesis (introduced in @numba_introduction), did not support consuming arrays through DLPack in either its CPU or CUDA backends. DLPack reading had been a long-planned feature in both the core Numba project and its `numba-cuda` module, but neither had shipped an implementation. #mcite(<c_numba-dlpack-issue>, <c_numba-cuda-dlpack-issue>)
+Although DLPack is the recommended interchange protocol and satisfies all the requirements set by the Python Array API standard (@array_standard_interchange_requirements_table), its adoption among consumer libraries was not yet complete at the time this work began. Numba, the primary JIT compilation framework used for evaluation in this thesis (introduced in @numba_introduction), did not support consuming arrays through DLPack in either its CPU or CUDA backends. DLPack reading had been a long-planned feature in both the core Numba project and its `numba-cuda` module, but neither had shipped an implementation. #mcite(<c_numba-dlpack-issue>, <c_numba-cuda-dlpack-issue>)
 
 This limitation necessitated implementing the two remaining protocols. The Python Buffer protocol was required to enable Numba's CPU-side JIT compiler (`@jit`, `@vectorize`) to operate on PyTNL arrays residing in host memory. The CUDA Array interface was required to enable Numba's CUDA backend (`@cuda.jit`) to launch kernels directly on PyTNL arrays residing in device memory.
 
@@ -253,16 +252,16 @@ Given these developments, only the Python Buffer protocol implementation was ult
 
 From a technical standpoint, the implementation of each protocol is relatively straightforward. The protocols primarily require populating their respective structures (`Py_buffer` for the Buffer protocol, the `__cuda_array_interface__` dictionary for CAI) with metadata describing the memory layout, data type, shape, and strides of the underlying array. This information is readily available from the internal representation of PyTNL's container types.
 
-A notable detail concerns the Buffer protocol specifically. Unlike DLPack and the CUDA Array interface, which expose Python-level methods (`__dlpack__`, `__dlpack_device__`, `__cuda_array_interface__`), the Buffer protocol is implemented entirely at the C API level through type slots (`bf_getbuffer` and `bf_releasebuffer`). The protocol has no corresponding Python-side special methods in Python versions prior to 3.12. Since PyTNL's bindings are built using Nanobind, the buffer support is registered through the appropriate slot mechanism rather than as a Python method.
+A notable detail concerns the Buffer protocol specifically. Unlike DLPack and the CUDA Array interface, which expose Python-level methods (`__dlpack__`, `__dlpack_device__`, `__cuda_array_interface__`), the Buffer protocol is implemented entirely at the C API level through type slots (`bf_getbuffer` and `bf_releasebuffer`). The protocol has no corresponding Python-side special methods in Python versions prior to 3.12. Since PyTNL's bindings are built using nanobind, the buffer support is registered through the appropriate slot mechanism rather than as a Python method.
 
 
 == Unlocked possibilities and usage
 
 With the protocol implementations in place, PyTNL's array containers become consumable by any library that understands the corresponding interchange mechanism. This section describes the concrete capabilities that these protocols enable, organized around four objectives:
 
-+ *Zero-copy interoperability.* Although PyTNL aims to be a self-contained library, allowing the no-copy views in other libraries gives users the freedom to use the best tool for the job. And thanks to sharing the buffer, the modifications are made immediately accesible even in the originating PyTNL array.
++ *Zero-copy interoperability.* Although PyTNL aims to be a self-contained library, allowing the no-copy views in other libraries gives users the freedom to use the best tool for the job. And thanks to sharing the buffer, the modifications are made immediately accessible even in the originating PyTNL array.
 + *Direct execution of JIT-compiled functions on PyTNL containers.* Through the Buffer protocol (CPU) and DLPack (CUDA), Numba-compiled functions and kernels can operate directly on PyTNL arrays without requiring an explicit data copy or conversion. This includes scalar JIT functions, vectorized operations, and multi-dimensional CUDA kernels.
-+ *Applicability to non-array data structures.* The protocols are defined for dense, contiguous memory regions and therefore map naturally onto `NDArray`. However, sparse formats such as CSR matrices store their data in multiple separate arrays (values, column indices, row pointers), each of which can be individually exported. This section explores what operations this partial exposure enables and where its limitations lie.
++ *Applicability to non-array data structures.* The protocols are defined for dense, contiguous memory regions and therefore map naturally onto `NDArray`. But positive impact can be seen even in some more complex data structures. For example, sparse formats such as CSR matrices store their data in multiple separate arrays (values, column indices, row pointers), each of which can be individually exported. This section explores what operations this partial exposure enables and where its limitations lie.
 + *Performance evaluation.* The element-wise operations executed through the protocol-based direct access are benchmarked and compared against the results from @function_calling_from_cpp_benchmark, where Python functions were passed across the language boundary into the #cpp runtime.
 
 === Zero-copy interoperability
@@ -314,7 +313,7 @@ This allows users to leverage the strengths of different libraries on the same d
 === JIT-compiled operations on arrays
 
 // TODO: Rewrite when the first benchmark results are actually written
-As the benchmarks in @function_calling_from_cpp_benchmark suggests, a big performance bottleneck in executing element-wise operations are the constant crossings of the language boundary, the type conversions, boxing and unboxing of Python objects and rest of the overhead. Now just the inversion of approach and calling the user functions from Python loops instead of #cpp is not a sufficient solution. Function like the one shown @slow_python_map_function still crosses the boundary two times for each element, once when the element is read and once when it is written back. Each time, the `double` value is converted to a Python float object and back. Furthermore, the Python for loop execution itself is simply slower then the equivalent C++ loop.
+As the benchmarks in @function_calling_from_cpp_benchmark suggests, a big performance bottleneck in executing element-wise operations are the constant crossings of the language boundary, the type conversions, boxing and unboxing of Python objects and rest of the overhead. Now just the inversion of approach and calling the user functions from Python loops instead of #cpp is not a sufficient solution. Function like the one shown in @slow_python_map_function still crosses the boundary two times for each element, once when the element is read and once when it is written back. Each time, the `double` value is converted to a Python float object and back. Furthermore, the Python for loop execution itself is simply slower then the equivalent C++ loop.
 
 #code1(
   [Element wise mapping using a plain Python loop. Generally low performance both for the Python loop but mainly for the many element accesses that require crossing the language boundary.],
@@ -359,7 +358,7 @@ Note that the function accepts the whole array and contains its own loop. The us
 
 The disadvantage is that the user not only can, but must, write the loop themselves. That loses some of the convenience of simple element-wise operations and the original `parallelFor` TNL function.
 
-Still, the key insight is that this allows users to write standard Python code and as will be seen in @benchmark_user_functions_protocol_table, this happens without the usual performance costs associated with Python.
+Still, the key insight is that this allows users to write standard Python code and as will be seen later in a benchmark, this happens without the usual performance costs associated with Python.
 
 ==== Numba `@vectorize` --- element-wise shortcut <numba_vectorize_usage>
 
@@ -501,9 +500,9 @@ This approach does come with a usability cost: the user must understand the inte
 
 === Performance evaluation <protocol_performance_evaluation>
 
-To sum up the demonstration, benchmark evaluates the performance of the protocol-based direct access approach for executing element-wise operations on PyTNL arrays. The goal is to compare the performance of executing a simple element-wise scaling operation through the protocols against the results from @function_calling_from_cpp_benchmark, where the same operation was implemented by passing Python functions into the #cpp runtime.
+To sum up the demonstration, benchmark evaluates the performance of the protocol-based direct access approach for executing element-wise operations on PyTNL arrays. The goal is to compare the performance of executing a simple JIT compiled element-wise scaling operation directly on data exposed through the protocols against the results from @function_calling_from_cpp_benchmark, where the same operation was implemented by passing Python functions into the #cpp runtime.
 
-The benchmark measures the same operation --- scaling every element of a $2^21$-element array by a constant factor --- across all methods demonstrated in the preceding sections, as well as baseline approaches including plain Python loops and NumPy's built-in ufunc. Each method was timed over multiple iterations and the average per-iteration time is reported. The results are summarized in @benchmark_user_functions_protocol_table.
+The benchmark measures the same operation --- scaling every element of a $2^21$-element array by a constant factor --- across all methods demonstrated in the preceding sections, as well as baseline approaches that include plain Python loops and NumPy's built-in ufunc. Each method was timed over multiple iterations and the average per-iteration time is reported. All the JIT compiled functions and kernels were warmed-up so the compilation overhead is excluded. The results are summarized in @benchmark_user_functions_protocol_table.
 
 #figure(
   table(
@@ -530,15 +529,15 @@ The benchmark measures the same operation --- scaling every element of a $2^21$-
   ],
 ) <benchmark_user_functions_protocol_table>
 
-The most important observation is that PyTNL arrays accessed through the protocols perform on par with their native counterparts. Numba `@jit` on a PyTNL host array (0.795 ms) is virtually identical to the same function on a NumPy array (0.810 ms), and both match the NumPy ufunc baseline (0.843 ms). Similarly, `@cuda.jit` on a PyTNL CUDA `NDArray` (0.093 ms) is indistinguishable from the same kernel on a CuPy array (0.094 ms). This confirms that the protocol-based export introduces negligible overhead --- once the buffer reference is handed off, the JIT-compiled code operates on raw memory at the same speed regardless of the originating library.
+The most important observation is that PyTNL arrays accessed through the protocols perform on par with their native counterparts. Numba `@jit` on a PyTNL host array (0.795 ms) is virtually identical to the same function on a NumPy array (0.810 ms), and both match the NumPy ufunc baseline (0.843 ms). Similarly, `@cuda.jit` on a PyTNL CUDA `NDArray` (0.093 ms) is indistinguishable from the same kernel on a CuPy array (0.094 ms). This confirms that the protocol-based export introduces only negligible overhead --- once the buffer reference is handed off, the JIT-compiled code operates on raw memory at the same speed regardless of the originating library.
 
 On the GPU side, the `cuda.jit` results are roughly 9× faster than the CPU baseline, which is expected given the massively parallel nature of the operation and the hardware used. This is further supported by the fact that increasing $N$ does not significantly change the per-iteration time on the GPU, while it does rise linearly on the CPU, confirming the parallel nature of the execution.
 
-The `@vectorize` results (1.2--1.3 ms) are somewhat slower than the `@jit` approach, which is consistent with the additional overhead of the ufunc dispatch machinery. Note that in the benchmark, the workaround mentioned in @numba_vectorize_usage was used to achieve in-place mutation. So the slowdown is not caused by extra allocation. Still, the performance different is very slight and seems to be a reasonable tradeoff for the convenience of writing scalar logic without explicit loops.
+The `@vectorize` results (1.2--1.3 ms) are somewhat slower than the `@jit` approach, which is consistent with the additional overhead of the ufunc dispatch machinery. Note that in the benchmark, the workaround mentioned in @numba_vectorize_usage was used to achieve in-place mutation. So the slowdown is not caused by extra allocation. Still, the performance difference is very slight and seems to be a reasonable tradeoff for the convenience of writing scalar logic without explicit loops.
 
 // TODO: Check the sentence makes sense after the first benchmark chapter is actually written
 The bottom of the table reveals the critical comparison with @function_calling_from_cpp_benchmark. The `PyTNL forAll` row, where a Python callback is passed into the #cpp runtime and invoked for each element, clocks in at 744 ms --- over 883× slower than the NumPy baseline. This is the cost of crossing the language boundary on every single element access, as discussed earlier in this chapter. By contrast, the protocol-based approach with Numba `@jit` on the same PyTNL array achieves 0.795 ms, showcasing the same performance characteristics as native executions. The language boundary is crossed exactly once, when the buffer view is exported, and the compiled function then runs entirely in native code.
 
-Even the plain Python loop on a Python list (70 ms), which avoids the binding overhead entirely but suffers from interpreter slowness, is still 88× slower than the JIT-compiled protocol path. The Python loop on a NumPy array (589 ms) is even worse, as each element access through `__getitem__` and `__setitem__` involves boxing and unboxing Python objects --- the same fundamental overhead that plagues the `forAll` approach.
+Even the plain Python loop on a Python list (70 ms), which avoids the binding overhead entirely but suffers from interpreter slowness, is still 88× slower than the JIT-compiled protocol path. The Python loop on a NumPy array (589 ms) is even worse, as each element access through `__getitem__` and `__setitem__` involves boxing and unboxing Python objects --- the same fundamental overhead that slows the `forAll` approach.
 
-These results validate the central thesis of this chapter: exposing PyTNL's memory through standard interchange protocols and letting the user drive computation from the Python side with JIT compilation is not merely a viable alternative to passing callbacks into #cpp --- it is dramatically faster, while simultaneously offering a relatively straightforward API that users of Python scientific libraries are already familiar with.
+These results validate the central thesis of this chapter: exposing PyTNL's memory through standard interchange protocols and letting the user drive computation from the Python side with JIT compilation is not merely a viable alternative to passing callbacks into #cpp. It is dramatically faster, while simultaneously offering a relatively straightforward API that users of Python scientific libraries are already familiar with.

@@ -27,15 +27,15 @@
     lang-outset: lang-outset,
     languages: codly-languages,
     zebra-fill: none,
-    breakable: true
+    breakable: false
   )
   codly(number-format: if line-numbers { numbering.with("1") } else { none })
 
   [
-    #show figure: set block(breakable: true)
+    #show figure: set block(breakable: false)
     #figure(
       block(
-        breakable: true,
+        breakable: false,
         local(
           ..pass,
           content
@@ -493,7 +493,14 @@
   }
 
   show outline.entry: entry => {
-    ref-box(entry)
+    if entry.element.func() == heading and (entry.element.location() == locate(<accessing_cpp_managed_memory_heading>) or entry.element.location() == locate(<tool-intro-chapter>)) {
+      {
+        show linebreak: [ ]
+        ref-box(entry)
+      }
+    } else {
+      ref-box(entry)
+    }
   }
 
   set list(
@@ -757,10 +764,12 @@
             ),
             [#chapter-label #number],
             grid.cell(
+              align: right,
               colspan: 2,
               text(
                 fill: ctu-blue,
                 size: size_Huge,
+                hyphenate: false,
                 it.body,
               )
             ),

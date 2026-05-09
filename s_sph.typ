@@ -57,20 +57,19 @@ After that however, the user must still manually compile the C++ code via `cmake
 
 ==== Simplified workflow goals
 
-The PyTNL expansion aims to collapse this multi-step process into a single Python script. Instead of separate initialisation, compilation, and execution phases --- each requiring different tools and knowledge --- the user should be able to specify the simulation configuration through Python methods and functions and drive the simulation time loop directly from Python.
+The PyTNL expansion aims to collapse this multi-step process into a single Python script. Instead of separate initialization, compilation, and execution phases --- each requiring different tools and knowledge --- the user should be able to specify the simulation configuration through Python methods and functions and drive the simulation time loop directly from Python.
 
 The key goals of PyTNL-SPH are:
 
-+ No manual #cpp compilation --- the simulation is already compiled along with the library, or as the @sph_code_generation describes, the JIT plugin system compiles the variant on the spot and caches it by default.
-+ No subprocess launching --- the simulation runs directly within the Python process.
-+ No need to edit #cpp configuration headers --- all template parameters are selected through Python arguments.
-+ User-defined functions can be written in Python --- including the possibility of JIT-compiled Numba functions operating on the solver's arrays through the data interchange protocols described in the preceding chapter --- rather than requiring #cpp code that must be compiled with the project.
+- *No manual #cpp compilation* --- the simulation is already compiled along with the library, or as the @sph_code_generation describes, the JIT plugin system compiles the variant on the spot and caches it by default.
+- *No subprocess launching* --- the simulation runs directly within the Python process.
+- *No need to edit #cpp configuration headers* --- all template parameters are selected through Python arguments.
+- *User-defined functions can be written in Python* --- including the possibility of JIT-compiled Numba functions operating on the solver's arrays through the data interchange protocols described in the preceding chapter --- rather than requiring #cpp code that must be compiled with the project.
 
-// TODO: Once the API is finalised, add a side-by-side comparison (table or two columns) showing the traditional three-step workflow vs. the single-script PyTNL approach.
 
 === Template instantiation <sph_template_instantiation>
 
-The compile-time template configuration described in @sph_current_workflow creates a challenge for Python bindings. In native #cpp, the compiler instantiates templates on demand --- the user edits `config.h`, and only the requested combination of types is compiled. Nanobind, however, requires every template instantiation it wraps to be explicitly enumerated and compiled in advance. There is no mechanism to defer instantiation to runtime; the set of supported types is fixed when the extension module is built.
+The compile-time template configuration described in @sph_current_workflow creates a challenge for Python bindings. In native #cpp, the compiler instantiates templates on demand --- the user edits `config.h`, and only the requested combination of types is compiled. nanobind, however, requires every template instantiation it wraps to be explicitly enumerated and compiled in advance. There is no mechanism to defer instantiation to runtime; the set of supported types is fixed when the extension module is built.
 
 To illustrate the scale of the problem, @sph_config_h shows how a single variant is assembled in `config.h`, and @sph_template_axes lists all available configuration axes:
 
@@ -132,8 +131,7 @@ Given this work's goal of improving accessibility and user experience, the secon
 
 === Code generation <sph_code_generation>
 
-// TODO: Check there are experiments describing this...:d
-Experiments described in @nvrtc_introduction demonstrate that runtime compilers like NVRTC fail to compile the heavily-templated TNL code base, whose design relies on device-independent user code that runs on both CPU and GPU. The code generation therefore relies on the standard toolchain.
+Experiments described in @nvrtc_runtime_compilation demonstrate that runtime compilers like NVRTC fail to compile the heavily-templated TNL code base, whose design relies on device-independent user code that runs on both CPU and GPU. The code generation described here therefore relies on the standard toolchain.
 
 CMake is used to configure and drive the compilation, and `nvcc` is used to compile the CUDA variants. This requires the user to have the full toolchain installed. That is, however, already expected of users who build the original TNL-SPH from source, so it does not represent an additional barrier. No new dependencies are introduced.
 
@@ -152,37 +150,27 @@ For each variant, two files are produced:
 + *`CMakeLists.txt`* --- a standalone CMake project that builds the plugin as a shared library (`plugin.so`). It reuses the exact compilers, C++ standard, and include paths from the original PyTNL-SPH build through a `build_info` module, ensuring ABI compatibility between the host extension and the dynamically loaded plugins.
 
 #code1(
-  [Part of the template used to generate `plugin.cpp`. EOS and integration scheme are fixed in the template; all other physics choices correspond directly to a VariantSpec field.],
+  [Part of the template used to generate `plugin.cpp`.],
   <sph_plugincpp_template>,
   ```cpp
-  // ── 1. Device ────────────────────────────────────────────────────────────────
+  // ── 1. Device
   {{DEVICE_INCLUDE}}
   {{DEVICE_USING}}
-
-  // ── 2. Particle system configuration ─────────────────────────────────────────
-  class ParticleSystemConfig {
-      using RealType = {{PRECISION}};
-      static constexpr int spaceDimension = {{SPACE_DIMENSION}};
-      // ... index types, neighbour list type ...
-  };
-
-  // ── 3. SPH physics parameters ─────────────────────────────────────────────────
+  ...
+  // ── 3. SPH physics parameters 
   template<typename DeviceT>
   class SPHParams {
   public:
       using KernelFunction    = TNL::SPH::KernelFunctions::{{KERNEL_TYPE}}<SPHConfig>;
       using DiffusiveTerm     = TNL::SPH::DiffusiveTerms::{{DIFFUSIVE_TERM}}<SPHConfig>;
       using ViscousTerm       = TNL::SPH::ViscousTerms::{{VISCOUS_TERM}}<SPHConfig>;
-      using EOS               = TNL::SPH::EquationsOfState::TaitWeaklyCompressibleEOS<SPHConfig>;
       using BCType            = TNL::SPH::WCSPH_BCTypes::{{BC_TYPE}};
       using TimeStepping      = TNL::SPH::{{TIME_STEPPING}}<SPHConfig>;
+      using EOS               = TNL::SPH::EquationsOfState::TaitWeaklyCompressibleEOS<SPHConfig>;
       using IntegrationScheme = TNL::SPH::IntegrationSchemes::VerletScheme<SPHConfig>;
   };
-
-  // ── 4. Top-level model alias ──────────────────────────────────────────────────
-  using VariantModel = TNL::SPH::WCSPH_DBC<ParticlesSys, SPHParams<Device>>;
-
-  // ── 5. C ABI entry points ─────────────────────────────────────────────────────
+  ...
+  // ── 5. C ABI entry points 
   extern "C" {
       pytnl_sph::ISimulation* sph_create()
           { return new pytnl_sph::ConcreteSimulation<VariantModel>("{{VARIANT_ID}}"); }
@@ -215,13 +203,9 @@ When a variant is requested, the system first checks whether `plugin.so` already
 
 The compiled `plugin.so` is loaded into the Python process via `dlopen` with `RTLD_NOW | RTLD_LOCAL`. The `RTLD_NOW` flag ensures all symbols are resolved at load time, surfacing linking errors immediately. The `RTLD_LOCAL` flag keeps the plugin's symbols private, allowing multiple variants to coexist in a single process without symbol conflicts.
 
-Communication between the host extension module and the plugin proceeds through a pure virtual #cpp interface `ISimulation`. This interface uses only simple types (`float`, `int`, `std::string`) --- no TNL types cross the ABI boundary.
+Communication between the host extension module and the plugin proceeds through a pure virtual #cpp interface `ISimulation`. This interface uses only simple types (`float`, `int`, `std::string`) --- no TNL types that would depend on selected template parameters cross the ABI boundary.
 
 The plugin's `sph_create()` function returns a pointer to a `ConcreteSimulation<Model>`, which implements `ISimulation` through composition: it holds the fully-templated `SPHMultiset_CFD<Model>` as a member and forwards each virtual method call to the corresponding method on it.
-
-// TODO: briefly explain _why_ composition is preferred over inheritance here --- is it specifically the CUDA device-side vtable issue, or something else? Clarify for the reader.
-// OR: Do not include the paragrapth about composition at all...
-// Inheriting from both `ISimulation` and the large, non-polymorphic `SPHMultiset_CFD` would constitute problematic multiple inheritance — `SPHMultiset_CFD` has no virtual destructor and was not designed to be a base class — and the combination of virtual dispatch with CUDA device-side code creates further ABI hazards. Composition avoids both problems with no overhead.
 
 The `ISimulation` interface exposes the individual phases of the simulation time step as separate methods: `performNeighborSearch()`, `interact()`, `computeTimeStep()`, `integrateVerletStep()`, and others --- following the original TNL-SPH design. All compute methods release the Python GIL during execution, ensuring that the interpreter is not blocked during long-running GPU or multi-threaded CPU computations.
 
@@ -275,20 +259,6 @@ A second limitation concerns particle data access. The ISimulation ABI boundary 
 
 Extending data access through ISimulation is non-trivial, because the interface works precisely by being decoupled from TNL types — it makes no assumptions about what the plugin contains, which is what keeps it general across all model variants. Returning TNL array types directly through a virtual method would reintroduce the model-specific type dependencies the boundary was designed to avoid.
 
-A solution that preserves this decoupling is to expose only raw buffer descriptors: a pointer, an element count, a scalar type tag, and a device flag — all plain C types, safe across the ABI boundary. The host pytnl_sph module would then wrap each pointer into a PyTNL ArrayView, a non-owning view type that holds only a pointer and size without taking ownership of the underlying memory. This would let the plugin remain the sole owner of particle data while giving the Python side a first-class PyTNL object supporting the same operations as a regular array. ArrayView already exists in TNL's C++ layer with a bind(pointer, size) method; the remaining work would be exposing it to Python through PyTNL's bindings.
+A solution that preserves this decoupling could be exposing only raw buffer descriptors: a pointer, an element count, a scalar type tag, and a device flag — all plain C types, safe across the ABI boundary. The host pytnl_sph module would then wrap each pointer into a PyTNL ArrayView, a non-owning view type that holds only a pointer and size without taking ownership of the underlying memory. This would let the plugin remain the sole owner of particle data while giving the Python side a first-class PyTNL object supporting the same operations as a regular array. ArrayView already exists in TNL's C++ layer with a bind(pointer, size) method; the remaining work would be exposing it to Python through PyTNL's bindings.
 
 A more drastic alternative would be to lean more heavily into the code generation. Instead of the time loop being driven from Python, the user could provide a #cpp snippet that would be injected into the generated `plugin.cpp` and compiled together with the rest of the code. The Python side would then simply load and execute the prepared loop. In some ways, however, this would be a step back --- more an improvement to the existing scripts and tooling than an expansion of PyTNL. No actual binding of TNL-SPH code would be required.
-
-// === Summary
-
-// The code generation approach successfully addresses the combinatorial explosion inherent in pre-compiling all template variants. Instead of building 288 possible instantiations ahead of time, only the specific variant requested by the user is compiled, cached, and dynamically loaded. The compilation is fully automated and transparent to the user, who interacts with a single Python factory function.
-
-
-
-// // TODO: add measured compilation times and compare with the traditional full-project rebuild to quantify the practical improvement
-
-// The plugin architecture also enables the Python-side time loop, which is a qualitative improvement over the traditional workflow. Users gain the ability to insert arbitrary Python logic --- including the JIT-compiled buffer operations demonstrated earlier --- between simulation phases, without touching any #cpp code. This bridges the gap between the performance of a fully compiled solver and the flexibility of a scripting environment.
-
-// // TODO: discuss whether user-defined functions (e.g., custom force terms) could be integrated into this pipeline --- either via the Numba/protocol approach from the previous chapter, or by extending the code generation to accept user-supplied C++ snippets. Evaluate trade-offs.
-// // TODO: mention any current limitations or known issues (e.g., first-compilation latency, dependency on matching compiler versions, no Windows support?)
-
