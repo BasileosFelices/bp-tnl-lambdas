@@ -1,0 +1,54 @@
+name: Build and release Typst PDF
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PDF_NAME: spelina-filip-bp-tnl-interfaces.pdf
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Typst
+        uses: typst-community/setup-typst@v4
+
+      - name: Compile thesis PDF
+        run: typst compile main.typ "$PDF_NAME"
+
+      - name: Upload PDF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: thesis-pdf
+          path: ${{ env.PDF_NAME }}
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download PDF artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: thesis-pdf
+          path: .
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.PDF_NAME }}
+          name: ${{ github.ref_name }}
+          body: Automatic release version ${{ github.ref_name }}
