@@ -21,10 +21,10 @@ While the interfaces often share similarities, as they are frequently inspired b
 // https://data-apis.org/array-api/2025.12/purpose_and_scope.html
 Python Array API Standard, whose first version released in 2021, attempts to address this growing fragmentation. The authors' goals however is by no means to make the libraries identical or make them all conform to the NumPy's API. Quite opposite in fact, they openly recognize there are good reasons for the inconsistencies and differences. They specifically list non-CPU device or JIT compilers support as some of the reasons the standard is willing to deviate from the laid ground work by these long existing libraries. #cite(<c_array-api-standard>)
 
-That makes the standard highly relevant both to this work and PyTNL itself. Apart from lowering user's learning curve by making the API more familiar. Adhering to the the standard would allows array-consuming libraries, like Numba, to accept PyTNL array-like data structures and run operations on them directly.
+That makes the standard highly relevant both to this work and PyTNL itself. Apart from lowering user's learning curve by making the API more familiar. Adhering to the the standard would allows array-consuming libraries, like Numba, to accept PyTNL array-like data structures and run operations on them directly, bringing the interoperability to the level of other libraries. 
 
 // https://data-apis.org/array-api/2025.12/design_topics/data_interchange.html
-The interoperability can be achieved either by Python's duck typing, or, more importantly, through a data exchange mechanism that would allow converting between different array implementations by exposing the underlying data directly. Instead of designing its own protocol, the standard states requirements(@array_standard_interchange_requirements_table) the protocol should fulfil and recommends an already existing protocol, along with two possible alternatives. All three protocols are described below.
+It can be achieved either by Python's duck typing, or, more importantly, through a data exchange mechanism that would allow converting between different array implementations by exposing the underlying data directly. Instead of designing its own protocol, the standard states requirements(@array_standard_interchange_requirements_table) the protocol should fulfil and recommends an already existing protocol, along with two possible alternatives. All three protocols are described below.
 
 To allow Numba's JIT compiled functions to execute on top of the PyTNL's array, the most important requirement is allowing the zero-copy view. Forcing a copy, be it inside the same memory block or worse, from one device memory to another, would likely once again invalidate all the performance gains the function compilation provides in the first place.
 
@@ -509,22 +509,22 @@ The benchmark measures the same operation --- scaling every element of a $2^21$-
     columns: (1fr, auto, auto, auto, auto),
     align: (left, left, center, right, right),
     inset: (x: 8pt, y: 10pt),
-    table.header([*Method*], [*Data Structure*], [*Device*], [*Avg \ (ms/iter)*], [*vs baseline*]),
-    [cuda.jit], [PyTNL NDArray], [GPU], [0.093], [9.1× faster],
-    [cuda.jit], [CuPy array], [GPU], [0.094], [8.9× faster],
-    [Numba jit], [PyTNL NDArray], [CPU], [0.795], [1.1× faster],
-    [Numba jit], [NumPy array], [CPU], [0.810], [1.0× faster],
-    [NumPy ufunc], [NumPy array], [CPU], [0.843], [(baseline)],
-    [Numba vectorize], [NumPy array], [CPU], [1.195], [1.4× slower],
-    [Numba vectorize], [PyTNL NDArray], [CPU], [1.310], [1.6× slower],
-    [python loop], [Python list], [CPU], [70.179], [83.3× slower],
-    [python loop], [NumPy array], [CPU], [589.413], [699.3× slower],
-    [PyTNL forAll], [PyTNL NDArray], [CPU], [744.411], [883.2× slower],
+    table.header([*Method*], [*Data Structure*], [*Device*], [*Avg \ (ms/iter)*], [*Speedup*]),
+    [cuda.jit], [PyTNL NDArray], [GPU], [0,093], [9,0645x],
+    [cuda.jit], [CuPy array], [GPU], [0,094], [8,9681x],
+    [Numba jit], [PyTNL NDArray], [CPU], [0,795], [1,0604x],
+    [Numba jit], [NumPy array], [CPU], [0,81], [1,0407x],
+    [NumPy ufunc], [NumPy array], [CPU], [0,843], [1,0000x],
+    [Numba vectorize], [NumPy array], [CPU], [1,195], [0,7054x],
+    [Numba vectorize], [PyTNL NDArray], [CPU], [1,31], [0,6435x],
+    [python loop], [Python list], [CPU], [70,179], [0,0120x],
+    [python loop], [NumPy array], [CPU], [589,413], [0,0014x],
+    [PyTNL forAll], [PyTNL NDArray], [CPU], [744,411], [0,0011x],
     table.hline(stroke: 1.5pt),
   ),
   caption: [
     Element-wise scale benchmark across methods and data structures, $N = 2^(21) = 2 thin 097 thin 152$,
-    sorted fastest to slowest. Baseline is NumPy scale on a NumPy array.
+    sorted fastest to slowest. Speedup is relative to NumPy scale on a NumPy array.
     The benchmark ran on a PC with Ryzen 3600 CPU and NVIDIA RTX 3070 GPU in WSL2 environment.
   ],
 ) <benchmark_user_functions_protocol_table>

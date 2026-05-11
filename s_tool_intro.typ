@@ -36,7 +36,7 @@ The Compute Unified Device Architecture (CUDA) is a proprietary and closed-sourc
 === Expected heterogeneous system
 
 // https://docs.nvidia.com/cuda/cuda-programming-guide/01-introduction/programming-model.html
-The CUDA programming model is not strictly about GPU execution, in fact it assumes a heterogeneous system where the CPU (host) and GPU (device) work together. Both CPU and GPU have their own memory spaces called _host memory_ and _device memory_, respectively. In some systems, the memory may be unified and conversely some systems may have multiple GPUs or even CPUs, each with their own memory space, but for simplicity, the works only considers the most common case of a single CPU and a single GPU with separate memory spaces. #cite(<c_cuda-programming-guide>)
+The CUDA programming model is not strictly about GPU execution, in fact it assumes a heterogeneous system where the CPU (host) and GPU (device) work together. Both CPU and GPU have their own memory spaces called _host memory_ and _device memory_, respectively. In some systems, the memory may be unified and conversely some systems may have multiple GPUs or even CPUs, each with their own memory space, but for simplicity, the work only considers the most common case of a single CPU and a single GPU with separate memory spaces. #cite(<c_cuda-programming-guide>)
 
 CUDA applications execute code on the GPU but they always start on the CPU. Code running on the CPU is called host code and typically handles the orchestration of the application, memory transfers, starting GPU execution and processing the results of it. 
 
@@ -82,7 +82,7 @@ Source files compiled with `nvcc` can contain both host code and device code. In
 
 The GPU compilation process first compiles #cpp device code into _Parallel Thread Execution_ (PTX) assembly. A high-level assembly language for NVIDIA GPUs. This happens in two steps. First, the code is compiled by the compiler front-end into NVVM IR, an intermediate representation that abstracts away the original source language. Then NVVM, LLVM based compiler, generates the PTX. This can be done multiple times for each desired virtual instruction set architecture (ISA), possibly resulting in multiple PTX files. 
 
-The PTX files are then passed to `ptxas` tool, which generates the final GPU binary code (`cubin`) for specific hardware. This can once again be done multiple times for different targets. Finally, all these targets can be embedded into a single fat binary to support a range of GPU architectures. One of the strengths of the additional PTX layer is that if compatible PTX is present, the GPU driver can JIT compile additional `cubin`s for newer architectures without needing to recompile the original source.
+The PTX files are then passed to `ptxas` tool, which generates the final GPU binary code (`cubin`) for specific GPU architectures. This can once again be done multiple times for different architectures. Finally, the resulting cubin files, together with optional PTX code, can be embedded into a single fat binary to support a range of GPU architectures. One of the strengths of the additional PTX layer is that if compatible PTX is present, the GPU driver can JIT compile additional `cubin`s for newer architectures without needing to recompile the original source.
 
 #figure(
     caption: [`nvcc` compilation workflow with multiple PTX and Cubin architectures. #cite(<c_cuda-programming-guide>)],

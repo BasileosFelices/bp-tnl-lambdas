@@ -467,22 +467,22 @@ Results of the first scenario are shown in the @benchmark_scenario_a_table below
     columns: (1fr, auto, auto, auto, auto),
     align: (left, left, left, right, right),
     inset: (x: 8pt, y: 10pt),
-    table.header([*Method*], [*Binding*], [*Callback*], [*Avg ms*], [*vs baseline*]),
-    [Python list], [—], [—], [82.589], [(baseline)],
-    [Python \ `DoubleVector`], [—], [—], [237.579], [2.9× slower],
-    [NumPy `*= 2.0`], [—], [—], [0.757], [109.1× faster],
-    [#cpp `multiplyAll`], [—], [—], [1.222], [67.6× faster],
-    [`mapAll`], [`nb::object`], [Python λ], [167.431], [2.0× slower],
-    [`mapAll`], [`nb::callable`], [Python λ], [169.207], [2.0× slower],
-    [`mapAll`], [`nb::callable`], [`@jit`], [379.349], [4.6× slower],
-    [`mapAll`], [`std::function`], [`@jit`], [402.222], [4.9× slower],
-    [`forAll`], [fn ptr], [`@cfunc`], [10.584], [7.8× faster],
-    [`seqFor`], [fn ptr], [`@cfunc`], [5.356], [15.4× faster],
+    table.header([*Method*], [*Binding*], [*Callback*], [*Avg ms*], [*Speedup*]),
+    [Python list], [—], [—], [82,589], [1,00x],
+    [Python \ `DoubleVector`], [—], [—], [237,579], [0,35x],
+    [NumPy `*= 2.0`], [—], [—], [0,757], [109,10x],
+    [#cpp `multiplyAll`], [—], [—], [1,222], [67,59x],
+    [`mapAll`], [`nb::object`], [Python λ], [167,431], [0,49x],
+    [`mapAll`], [`nb::callable`], [Python λ], [169,207], [0,49x],
+    [`mapAll`], [`nb::callable`], [`@jit`], [379,349], [0,22x],
+    [`mapAll`], [`std::function`], [`@jit`], [402,222], [0,21x],
+    [`forAll`], [fn ptr], [`@cfunc`], [10,584], [7,80x],
+    [`seqFor`], [fn ptr], [`@cfunc`], [5,356], [15,42x],
     table.hline(stroke: 1.5pt),
   ),
   caption: [
     Scenario A --- element-wise multiply (`vec[i] *= 2.0`), $N = 2^(21) = 2 thin 097 thin 152$
-    sorted by calling strategy. Baseline is plain Python list iteration.
+    sorted by calling strategy. Speedup is relative to plain Python list iteration.
     Benchmark ran on a PC with Ryzen 3600 CPU in WSL2 environment.
   ],
 ) <benchmark_scenario_a_table>
@@ -500,23 +500,23 @@ As last confirmation, the benchmark implements a second scenario with a heavier 
     columns: (1fr, auto, auto, auto, auto),
     align: (left, left, left, right, right),
     inset: (x: 8pt, y: 10pt),
-    table.header([*Method*], [*Binding*], [*Callback*], [*Avg ms*], [*vs baseline*]),
-    [Python list], [—], [Python fn], [475.667], [(baseline)],
-    [Python list], [—], [`@jit` fn], [346.476], [1.4× faster],
-    [Python \ `DoubleVector`], [—], [—], [743.670], [1.6× slower],
-    [NumPy \ vectorized], [—], [—], [59.106], [8.0× faster],
-    [#cpp \ `heavyComputeAll`], [—], [—], [34.620], [13.7× faster],
-    [`mapAll`], [`nb::object`], [Python fn], [567.003], [1.2× slower],
-    [`mapAll`], [`nb::callable`], [Python fn], [566.121], [1.2× slower],
-    [`mapAll`], [`nb::callable`], [`@jit` fn], [312.681], [1.5× faster],
-    [`mapAll`], [`std::function`], [`@jit` fn], [339.663], [1.4× faster],
-    [`forAll`], [fn ptr], [`@cfunc`], [35.144], [13.5× faster],
-    [`seqFor`], [fn ptr], [`@cfunc`], [34.775], [13.7× faster],
+    table.header([*Method*], [*Binding*], [*Callback*], [*Avg ms*], [*Speedup*]),
+    [Python list], [—], [Python fn], [475,667], [1,00x],
+    [Python list], [—], [`@jit` fn], [346,476], [1,37x],
+    [Python \ `DoubleVector`], [—], [—], [743,670], [0,64x],
+    [NumPy \ vectorized], [—], [—], [59,106], [8,05x],
+    [#cpp \ `heavyComputeAll`], [—], [—], [34,620], [13,74x],
+    [`mapAll`], [`nb::object`], [Python fn], [567,003], [0,84x],
+    [`mapAll`], [`nb::callable`], [Python fn], [566,121], [0,84x],
+    [`mapAll`], [`nb::callable`], [`@jit` fn], [312,681], [1,52x],
+    [`mapAll`], [`std::function`], [`@jit` fn], [339,663], [1,40x],
+    [`forAll`], [fn ptr], [`@cfunc`], [35,144], [13,53x],
+    [`seqFor`], [fn ptr], [`@cfunc`], [34,775], [13,68x],
     table.hline(stroke: 1.5pt),
   ),
   caption: [
     Scenario B --- heavier element-wise compute ($sin(x) + cos(x) dot sqrt(|x|+1)$), $N = 2^(21) = 2 thin 097 thin 152$
-    sorted by calling strategy. Baseline is plain Python list with a Python function.
+    sorted by calling strategy. Speedup is relative to plain Python list with a Python function.
     Benchmark ran on a PC with Ryzen 3600 CPU in WSL2 environment.
   ],
 ) <benchmark_scenario_b_table>
