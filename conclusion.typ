@@ -1,22 +1,26 @@
 #let cpp = box[C#h(-0.05em)++\u{2060}]
 
-This thesis investigated the design of efficient interfaces for the Template Numerical Library (TNL) in high-level environments, with the implemented work focused primarily on Python, whose integration challenges proved broader in scope than initially anticipated, and with Julia considered as a prospective direction. 
+This thesis investigated the design of efficient interfaces for the Template Numerical Library (TNL) in high-level environments, with the implemented work focused primarily on Python, whose integration challenges proved broader in scope than initially anticipated, and with Julia considered as a prospective direction.
 
 The central challenge was to enable user-defined functions and CUDA kernels to interact with TNL core data structures without incurring prohibitive overhead from Python execution and language-boundary crossings.
 
 #heading(outlined: false, depth: 3)[Key findings]
 
-The evaluation showed that a direct translation of #cpp higher-order functions, in which Python callables are passed as per-element callbacks, is technically feasible for host-side execution but unsuitable for performance-critical workloads. 
+The evaluation showed that a direct translation of #cpp higher-order functions, in which Python callables are passed as per-element callbacks, is technically feasible for host-side execution but unsuitable for performance-critical workloads.
 
 The benchmark results indicated that this approach can be more than 800 times slower than native execution, largely due to repeated boxing and unboxing of Python objects.
 
-The most effective implemented solution was an inversion of control based on zero-copy data-interchange protocols. By implementing the Python Buffer Protocol and leveraging existing DLPack support, TNL arrays were made directly accessible to Numba JIT-compiled functions. 
+The most effective implemented solution was an inversion of control based on zero-copy data-interchange protocols. By implementing the Python Buffer Protocol and leveraging existing DLPack support, TNL arrays were made directly accessible to Numba JIT-compiled functions.
 
 In the evaluated scenarios, this substantially reduced boundary overhead and enabled Python-driven code to achieve performance comparable to native NumPy and CuPy workflows.
 
 #heading(outlined: false, depth: 3)[Practical Application: TNL-SPH]
 
-The practical relevance of these findings was illustrated through a proof-of-concept extension of PyTNL toward the TNL-SPH module. By developing a just-in-time plugin architecture, the thesis showed that a manual #cpp/CMake workflow can be partially streamlined through a Python-driven interface. The resulting system was able to generate, compile, and cache simulation variants on demand, providing evidence that this approach is feasible for selected SPH use cases and may improve accessibility for users without deep knowledge of #cpp templates or build systems.
+The practical relevance of these findings was illustrated through a proof-of-concept extension of PyTNL toward the TNL-SPH module. By developing a just-in-time plugin architecture, the thesis showed that a manual #cpp/CMake workflow can be partially streamlined through a Python-driven interface.
+
+The resulting system was able to generate, compile, and cache simulation variants on demand, providing evidence that this approach is feasible for selected SPH use cases and may improve accessibility for users without deep knowledge of #cpp templates or build systems.
+
+An alternative demonstration based on binding the PDLP (Primal-dual hybrid gradient for linear programming) solver from TNL to PyTNL, and possibly to CVXPY, was also considered. However, this direction would have relied primarily on conventional binding and did not offer a clear way to showcase the explored JIT compilation support. For that reason, the TNL-SPH module was selected as a more suitable demonstration.
 
 #heading(outlined: false, depth: 3)[Future Work]
 
