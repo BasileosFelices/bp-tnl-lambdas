@@ -283,7 +283,7 @@ NVRTC is NVIDIA's runtime GPU compilation library for CUDA C++. It allows users 
 
 NVIDIA itself promotes NVRTC as one of the only ways to achieve runtime compilation of CUDA code without the need to spawn a new process executing `nvcc` at runtime. That, according to their documentation, is an approach with a couple of drawbacks: #cite(<c_cuda-nvrtc>)
 
-- The compilation overhead tends to be higher then necessary.
+- The compilation overhead tends to be higher than necessary.
 - End users are required to have `nvcc` and related build tools setup on their system.
 
 NVRTC addresses both of these issues by providing a library interface to the CUDA compilation process. It allows users to compile CUDA code directly from their application, without the need for external tools or processes.
@@ -468,16 +468,16 @@ Results of the first scenario are shown in the @benchmark_scenario_a_table below
     align: (left, left, left, right, right),
     inset: (x: 8pt, y: 10pt),
     table.header([*Method*], [*Binding*], [*Callback*], [*Avg ms*], [*Speedup*]),
-    [Python list], [—], [—], [82,589], [1,00x],
-    [Python \ `DoubleVector`], [—], [—], [237,579], [0,35x],
-    [NumPy `*= 2.0`], [—], [—], [0,757], [109,10x],
-    [#cpp `multiplyAll`], [—], [—], [1,222], [67,59x],
-    [`mapAll`], [`nb::object`], [Python λ], [167,431], [0,49x],
-    [`mapAll`], [`nb::callable`], [Python λ], [169,207], [0,49x],
-    [`mapAll`], [`nb::callable`], [`@jit`], [379,349], [0,22x],
-    [`mapAll`], [`std::function`], [`@jit`], [402,222], [0,21x],
-    [`forAll`], [fn ptr], [`@cfunc`], [10,584], [7,80x],
-    [`seqFor`], [fn ptr], [`@cfunc`], [5,356], [15,42x],
+    [Python list], [—], [—], [82.589], [1.00x],
+    [Python \ `DoubleVector`], [—], [—], [237.579], [0.35x],
+    [NumPy `*= 2.0`], [—], [—], [0.757], [109.10x],
+    [#cpp `multiplyAll`], [—], [—], [1.222], [67.59x],
+    [`mapAll`], [`nb::object`], [Python λ], [167.431], [0.49x],
+    [`mapAll`], [`nb::callable`], [Python λ], [169.207], [0.49x],
+    [`mapAll`], [`nb::callable`], [`@jit`], [379.349], [0.22x],
+    [`mapAll`], [`std::function`], [`@jit`], [402.222], [0.21x],
+    [`forAll`], [fn ptr], [`@cfunc`], [10.584], [7.80x],
+    [`seqFor`], [fn ptr], [`@cfunc`], [5.356], [15.42x],
     table.hline(stroke: 1.5pt),
   ),
   caption: [
@@ -487,11 +487,11 @@ Results of the first scenario are shown in the @benchmark_scenario_a_table below
   ],
 ) <benchmark_scenario_a_table>
 
-Right away, it is clear that the callbacks, with the exception of Numba's `@cfunc`s, are not competitive with the native approaches. They are in fact even slower then the pure Python list iteration, which is the first strong indication the binding overhead and language boundary crossings cause a significant slowdown and the issue is not necessarily the execution speed (i.e., the Python interpreting speed) of the callback body.
+Right away, it is clear that the callbacks, with the exception of Numba's `@cfunc`s, are not competitive with the native approaches. They are in fact even slower than the pure Python list iteration, which is the first strong indication the binding overhead and language boundary crossings cause a significant slowdown and the issue is not necessarily the execution speed (i.e., the Python interpreting speed) of the callback body.
 
 The cases using Numba JIT-compiled functions through `mapAll` methods further confirm this as, surprisingly, they are even slower than the pure Python callbacks. The execution time of the JIT-compiled function itself should very much compete with the native `multiplyAll` method and the fact that the `@cfunc` variants do indeed reach same order of magnitude confirms that.
 
-If the bottleneck isn't the callback execution itself, it leaves just the overhead of crossing the data across the language boundary each time the function is called. That would even explain why the JIT compiled variants are slower then the pure Python callbacks. In them the boundary is in fact crossed twice. The data first cross into Python only to be converted once again into #cpp types for the Numba function. Same thing happens to the return value on the way back.
+If the bottleneck isn't the callback execution itself, it leaves just the overhead of crossing the data across the language boundary each time the function is called. That would even explain why the JIT compiled variants are slower than the pure Python callbacks. In them the boundary is in fact crossed twice. The data first cross into Python only to be converted once again into #cpp types for the Numba function. Same thing happens to the return value on the way back.
 
 As last confirmation, the benchmark implements a second scenario with a heavier element-wise compute, namely `sin(x) + cos(x) dot sqrt(|x|+1)`. This should shift the bottleneck more toward the execution of the callback body and away from the language boundary crossing. If that is the case, then the JIT-compiled variants could finally show their advantage and show better relative performance compared to the pure Python callbacks. Results below in the @benchmark_scenario_b_table confirm this.
 
@@ -501,17 +501,17 @@ As last confirmation, the benchmark implements a second scenario with a heavier 
     align: (left, left, left, right, right),
     inset: (x: 8pt, y: 10pt),
     table.header([*Method*], [*Binding*], [*Callback*], [*Avg ms*], [*Speedup*]),
-    [Python list], [—], [Python fn], [475,667], [1,00x],
-    [Python list], [—], [`@jit` fn], [346,476], [1,37x],
-    [Python \ `DoubleVector`], [—], [—], [743,670], [0,64x],
-    [NumPy \ vectorized], [—], [—], [59,106], [8,05x],
-    [#cpp \ `heavyComputeAll`], [—], [—], [34,620], [13,74x],
-    [`mapAll`], [`nb::object`], [Python fn], [567,003], [0,84x],
-    [`mapAll`], [`nb::callable`], [Python fn], [566,121], [0,84x],
-    [`mapAll`], [`nb::callable`], [`@jit` fn], [312,681], [1,52x],
-    [`mapAll`], [`std::function`], [`@jit` fn], [339,663], [1,40x],
-    [`forAll`], [fn ptr], [`@cfunc`], [35,144], [13,53x],
-    [`seqFor`], [fn ptr], [`@cfunc`], [34,775], [13,68x],
+    [Python list], [—], [Python fn], [475.667], [1.00x],
+    [Python list], [—], [`@jit` fn], [346.476], [1.37x],
+    [Python \ `DoubleVector`], [—], [—], [743.670], [0.64x],
+    [NumPy \ vectorized], [—], [—], [59.106], [8.05x],
+    [#cpp \ `heavyComputeAll`], [—], [—], [34.620], [13.74x],
+    [`mapAll`], [`nb::object`], [Python fn], [567.003], [0.84x],
+    [`mapAll`], [`nb::callable`], [Python fn], [566.121], [0.84x],
+    [`mapAll`], [`nb::callable`], [`@jit` fn], [312.681], [1.52x],
+    [`mapAll`], [`std::function`], [`@jit` fn], [339.663], [1.40x],
+    [`forAll`], [fn ptr], [`@cfunc`], [35.144], [13.53x],
+    [`seqFor`], [fn ptr], [`@cfunc`], [34.775], [13.68x],
     table.hline(stroke: 1.5pt),
   ),
   caption: [

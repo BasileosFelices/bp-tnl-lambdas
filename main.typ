@@ -7,7 +7,7 @@
 
   I will be forever grateful to my family for their unconditional support, not only in my studies but in all aspects of my life.
 
-  Finally, I thank all my friends for all the, very much needed, pep~talks, encouragements and  all the fun times that keep me going.
+  Finally, I thank all my friends for all the very much needed pep~talks, encouragements and  all the fun times that keep me going.
 ]
 
 #let declaration = [
