@@ -12,9 +12,7 @@ TNL-SPH is an open-source SPH implementation developed as a submodule of the Tem
 
 The existing examples already ship with Python scripts that prepare the simulation configuration, run the simulation, and post-process the results. That makes TNL-SPH an ideal demonstration case for this work. If the whole user flow could be moved to Python --- with no manual compilation step and no subprocess launching --- that would be a significant improvement in the user experience and accessibility of the library.
 
-=== PyTNL goals
-
-==== Current workflow <sph_current_workflow>
+=== PyTNL goals <sph_current_workflow>
 
 // https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5671636
 The native TNL-SPH workflow, as described in the paper and its accompanying examples, involves three configuration files per simulation case. A compile-time configuration header `config.h` selects the device, particle representation, SPH model, and all of its associated template parameters --- kernel function, diffusive term, viscous term, equation of state, boundary condition type, time stepping strategy, and integration scheme. A runtime configuration file `config.ini` specifies physical and numerical parameters such as density, speed of sound, viscosity, CFL number, and paths to initial particle distributions. Finally, `case.h` contains the #cpp `main()` function that creates the solver instance and defines the simulation time loop. #cite(<c_halada2025tnlsph>)

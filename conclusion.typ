@@ -4,7 +4,7 @@ This thesis investigated the design of efficient interfaces for the Template Num
 
 The central challenge was to enable user-defined functions and CUDA kernels to interact with TNL core data structures without incurring prohibitive overhead from Python execution and language-boundary crossings.
 
-#heading(outlined: false)[Key findings]
+#heading(outlined: false, depth: 3)[Key findings]
 
 The evaluation showed that a direct translation of #cpp higher-order functions, in which Python callables are passed as per-element callbacks, is technically feasible for host-side execution but unsuitable for performance-critical workloads. 
 
@@ -14,11 +14,11 @@ The most effective implemented solution was an inversion of control based on zer
 
 In the evaluated scenarios, this substantially reduced boundary overhead and enabled Python-driven code to achieve performance comparable to native NumPy and CuPy workflows.
 
-#heading(outlined: false)[Practical Application: TNL-SPH]
+#heading(outlined: false, depth: 3)[Practical Application: TNL-SPH]
 
 The practical relevance of these findings was illustrated through a proof-of-concept extension of PyTNL toward the TNL-SPH module. By developing a just-in-time plugin architecture, the thesis showed that a manual #cpp/CMake workflow can be partially streamlined through a Python-driven interface. The resulting system was able to generate, compile, and cache simulation variants on demand, providing evidence that this approach is feasible for selected SPH use cases and may improve accessibility for users without deep knowledge of #cpp templates or build systems.
 
-#heading(outlined: false)[Future Work]
+#heading(outlined: false, depth: 3)[Future Work]
 
 While the implemented Python interface demonstrates the practicality of the proposed approach, several paths for expansion remain:
 

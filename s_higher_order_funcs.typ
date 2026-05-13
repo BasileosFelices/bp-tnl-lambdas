@@ -389,9 +389,9 @@ The interface can be further simplified and almost reach the convenient usage sh
   ```,
 )
 
-=== Requirements for the PyTNL containers
+// === Requirements for the PyTNL containers
 
-Similarly to the Numba-CUDA case, no matter the library or abstraction used, the NVRTC constructs a CUDA kernel that isn't a classic Python callable. All limitations described in @numba_cuda_introduction apply here as well. Passing the kernel through the nanobind callback interface does not circumvent the Python interpreter or the data conversion between Python and #cpp.
+Similarly to the `numba-cuda` case, no matter the library or abstraction used, the NVRTC constructs a CUDA kernel that isn't a classic Python callable. All limitations described in @numba_cuda_introduction apply here as well. Passing the kernel through the nanobind callback interface does not circumvent the Python interpreter or the data conversion between Python and #cpp.
 
 === Runtime compilation of TNL Higher-order functions <nvrtc_runtime_compilation>
 
