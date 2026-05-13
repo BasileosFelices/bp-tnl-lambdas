@@ -67,7 +67,7 @@ The key goals of PyTNL-SPH are:
 
 === Template instantiation <sph_template_instantiation>
 
-The compile-time template configuration described in @sph_current_workflow creates a challenge for Python bindings. In native #cpp, the compiler instantiates templates on demand --- the user edits `config.h`, and only the requested combination of types is compiled. nanobind, however, requires every template instantiation it wraps to be explicitly enumerated and compiled in advance. There is no mechanism to defer instantiation to runtime; the set of supported types is fixed when the extension module is built.
+The compile-time template configuration described in @sph_current_workflow creates a challenge for Python bindings. In native #cpp, the compiler instantiates templates on demand --- the user edits `config.h`, and only the requested combination of types is compiled. Nanobind, however, requires every template instantiation it wraps to be explicitly enumerated and compiled in advance. There is no mechanism to defer instantiation to runtime; the set of supported types is fixed when the extension module is built.
 
 To illustrate the scale of the problem, @sph_config_h shows how a single variant is assembled in `config.h`, and @sph_template_axes lists all available configuration axes:
 
@@ -135,7 +135,7 @@ CMake is used to configure and drive the compilation, and `nvcc` is used to comp
 
 ==== Variant specification
 
-The eight compile-time axes are modelled in Python as `Enum` classes whose `.value` strings correspond to the exact #cpp type names used in substitution. A frozen dataclass `VariantSpec` bundles all axes into a single hashable, immutable descriptor. Its `variant_id()` method produces a filesystem-safe string (e.g., `wcsph_dbc_2d_cuda_float_dbc_molteni_artificial`) that serves as both the cache key and the generated CMake project name.
+The eight compile-time axes (from @sph_template_axes) are modelled in Python as `Enum` classes whose `.value` strings correspond to the exact #cpp type names used in substitution. A frozen dataclass `VariantSpec` bundles all axes into a single hashable, immutable descriptor. Its `variant_id()` method produces a filesystem-safe string (e.g., `wcsph_dbc_2d_cuda_float_dbc_molteni_artificial`) that serves as both the cache key and the generated CMake project name.
 
 ==== Source generation
 
@@ -155,7 +155,7 @@ For each variant, two files are produced:
   {{DEVICE_INCLUDE}}
   {{DEVICE_USING}}
   ...
-  // ── 3. SPH physics parameters 
+  // ── 3. SPH physics parameters
   template<typename DeviceT>
   class SPHParams {
   public:
@@ -168,7 +168,7 @@ For each variant, two files are produced:
       using IntegrationScheme = TNL::SPH::IntegrationSchemes::VerletScheme<SPHConfig>;
   };
   ...
-  // ── 5. C ABI entry points 
+  // ── 5. C ABI entry points
   extern "C" {
       pytnl_sph::ISimulation* sph_create()
           { return new pytnl_sph::ConcreteSimulation<VariantModel>("{{VARIANT_ID}}"); }
@@ -253,9 +253,9 @@ From the user's perspective, the entire compilation and loading pipeline is hidd
 
 While the loop is kept open and adjustable, the available operations are limited by the methods exposed by the `ISimulation` interface. This interface was designed only around the WCSPH-DBC model. More complex models may not fit the existing interface and will likely require additional methods to be added.
 
-A second limitation concerns particle data access. The ISimulation ABI boundary intentionally passes only scalar values — simulation time, step index, and time-step size — to avoid TNL types crossing the .so boundary. As a consequence, there is no mechanism to read or write individual particle fields (density, velocity, pressure, distortion tensor) from the Python time loop.
+A second limitation concerns particle data access. The `ISimulation` ABI boundary intentionally passes only scalar values — simulation time, step index, and time-step size — to avoid TNL types crossing the .so boundary. As a consequence, there is no mechanism to read or write individual particle fields (density, velocity, pressure, distortion tensor) from the Python `ISimulation` object (@sph_jit_usage_example).
 
-Extending data access through ISimulation is non-trivial, because the interface works precisely by being decoupled from TNL types — it makes no assumptions about what the plugin contains, which is what keeps it general across all model variants. Returning TNL array types directly through a virtual method would reintroduce the model-specific type dependencies the boundary was designed to avoid.
+Extending data access through `ISimulation` is non-trivial, because the interface works precisely by being decoupled from TNL types — it makes no assumptions about what the plugin contains, which is what keeps it general across all model variants. Returning TNL array types directly through a virtual method would reintroduce the model-specific type dependencies the boundary was designed to avoid.
 
 A solution that preserves this decoupling could be exposing only raw buffer descriptors: a pointer, an element count, a scalar type tag, and a device flag — all plain C types, safe across the ABI boundary. The host pytnl_sph module would then wrap each pointer into a PyTNL ArrayView, a non-owning view type that holds only a pointer and size without taking ownership of the underlying memory. This would let the plugin remain the sole owner of particle data while giving the Python side a first-class PyTNL object supporting the same operations as a regular array. ArrayView already exists in TNL's C++ layer with a bind(pointer, size) method; the remaining work would be exposing it to Python through PyTNL's bindings.
 

@@ -8,7 +8,7 @@ This chapter introduces higher-order functions in TNL and explores strategies fo
 == Higher-order functions in TNL
 // TODO: check this doesn't reintroduce anything again
 // https://tnl-project.gitlab.io/tnl/classTNL_1_1Containers_1_1Array.html#aab46e9d7161d32fd887683f2d2c52046
-TNL utilizes higher-order functions and methods quite extensively, giving users a way to express their custom logic. The TNL arrays have the `.forElements` and `.forAllElements` methods that allow running any custom element-wise operations on the elements. 
+TNL utilizes higher-order functions and methods quite extensively, giving users a way to express their custom logic. The TNL arrays have the `.forElements` and `.forAllElements` methods that allow running any custom element-wise operations on the elements.
 
 These methods take a lambda function that takes an index and a reference to the current element. The lambda is then called for each element of the array or each element inside given bounds. This is performed at the same place where the array is allocated. Meaning it even allows parallel execution on the GPU provided the lambda is declared `__cuda_callable__`. #cite(<c_tnl-array-docs>)
 
@@ -66,14 +66,14 @@ First option is using type casters. They translate #cpp object into equivalent P
   caption: [Diagram of nanobind's type casting.],
 )
 
-Second option is binding of #cpp types to Python. nanobind creates new Python objects that effectively are wrappers around the original #cpp objects. This is one of the main features of nanobind and is used extensively in PyTNL. However, this direction does not make much sense for higher-order functions as this time we need to send what is originally a Python object over to the #cpp side. 
+Second option is binding of #cpp types to Python. Nanobind creates new Python objects that effectively are wrappers around the original #cpp objects. This is one of the main features of nanobind and is used extensively in PyTNL. However, this direction does not make much sense for higher-order functions as this time we need to send what is originally a Python object over to the #cpp side.
 
 #figure(
   image("assets/nanobind-binding-light.png", alt: "Diagram of nanobind's type casting.", width: 65%),
   caption: [Diagram of nanobind's binding.],
 )
 
-That is where the third options comes in. nanobind calls it wrapping and it can be thought of as a sort of reverse binding. It provides wrappers around Python types that can be used within #cpp. It can even be used to call third party Python libraries from #cpp. For wrapping functions and other Python callables, nanobind provides `nb::callable` type that can wrap around them. Or the more general `nb::object` type that can wrap around any Python object, callable or not.
+That is where the third options comes in. Nanobind calls it wrapping and it can be thought of as a sort of reverse binding. It provides wrappers around Python types that can be used within #cpp. It can even be used to call third party Python libraries from #cpp. For wrapping functions and other Python callables, nanobind provides `nb::callable` type that can wrap around them. Or the more general `nb::object` type that can wrap around any Python object, callable or not.
 
 #figure(
   image("assets/nanobind-wrapper-light.png", alt: "Diagram of nanobind's type casting.", width: 65%),
@@ -82,7 +82,7 @@ That is where the third options comes in. nanobind calls it wrapping and it can 
 
 // https://nanobind.readthedocs.io/en/latest/functions.html#higher-order-functions
 // https://nanobind.readthedocs.io/en/latest/exchanging.html
-For higher-order functions, the type caster approach is definitely the most convenient and is even directly recommended by the nanobind documentation. After including the `nanobind/stl/function.h` header, it is possible to expose #cpp functions or methods that accept native `std::function` as function parameters. nanobind will then make sure that any Python callable with compatible signature can be passed in as an argument. 
+For higher-order functions, the type caster approach is definitely the most convenient and is even directly recommended by the nanobind documentation. After including the `nanobind/stl/function.h` header, it is possible to expose #cpp functions or methods that accept native `std::function` as function parameters. Nanobind will then make sure that any Python callable with compatible signature can be passed in as an argument.
 
 Technically, this way it should be possible to bind any existing TNL higher-order function without modification, as they already use `std::function` as parameters.
 
@@ -90,7 +90,7 @@ Technically, this way it should be possible to bind any existing TNL higher-orde
   [Example of a bound method accepting native `std::function`. `DoubleVector` represents bound class wrapping access to `std::vector<Double>`.],
   <nanobind_std_function_binding_example>,
   ```cpp
-  #include <nanobind/stl/function.h> 
+  #include <nanobind/stl/function.h>
           ... // Other bindings for DoubleVector
           .def("forAll_stdfunc",
               // the actual implementation accepts and uses directly native std::function
@@ -117,11 +117,11 @@ Python function passed through this interface even keep the full flexibility of 
   ```,
 )
 
-This convenience, however, slightly obscures what happens under the hood. The Python callable remains a Python object, including its Python closure state. nanobind stores a reference to that callable and constructs a callable #cpp adapter around it. Whenever the #cpp code invokes the callback, nanobind must convert the input arguments to Python objects, call the Python function while holding the interpreter state (and the GIL), and then convert the result back to the requested #cpp type. These type conversions are often called boxing and unboxing of the values. 
+This convenience, however, slightly obscures what happens under the hood. The Python callable remains a Python object, including its Python closure state. Nanobind stores a reference to that callable and constructs a callable #cpp adapter around it. Whenever the #cpp code invokes the callback, nanobind must convert the input arguments to Python objects, call the Python function while holding the interpreter state (and the GIL), and then convert the result back to the requested #cpp type. These type conversions are often called boxing and unboxing of the values.
 
-In other words, the code remains a Python callback and is still always executed through the Python interpreter. Effectively, when it comes to callables, although a type caster is used, the code is not truly translated to a #cpp code but rather just wrapped just as in the discussed third wrapping option. 
+In other words, the code remains a Python callback and is still always executed through the Python interpreter. Effectively, when it comes to callables, although a type caster is used, the code is not truly translated to a #cpp code but rather just wrapped just as in the discussed third wrapping option.
 
-To use wrapping explicitly, instead of accepting `std::function`, the parameter must be `nb::callable` or `nb::object`. The difference between the two is mainly in safety, with `nb::callable`, nanobind checks immediately at the language boundary whether the object is indeed callable. With `nb::object`, any Python object passes and an error will only likely occur when the object is actually invoked. 
+To use wrapping explicitly, instead of accepting `std::function`, the parameter must be `nb::callable` or `nb::object`. The difference between the two is mainly in safety, with `nb::callable`, nanobind checks immediately at the language boundary whether the object is indeed callable. With `nb::object`, any Python object passes and an error will only likely occur when the object is actually invoked.
 
 Compared to the #cpp `std::function` adapter, both of these approaches make it more explicit that the callback is still a Python object and that the execution will still go through the interpreter. They also allow more flexibility in terms of what kind of Python callables can be passed, as they do not require a specific signature or return type.
 
@@ -150,9 +150,9 @@ Compared to the #cpp `std::function` adapter, both of these approaches make it m
 
 Of the three, using `nb::object` as the callback likely invokes the least amount of nanobind overhead. That said, the fundamental cost model remains the same across all three approaches. The callback is still a Python object and the main cost of crossing the language boundary, that is, converting arguments, waiting on the Python interpreter execution and converting the results back, is still paid each time the callback is invoked.
 
-This understanding is crucial for TNL. Native TNL higher-order functions are designed for very fine-grained callbacks, often one call per element, and in the CUDA case they may also need to be compiled into device code. A native #cpp lambda works well in this environment because its type, capture layout, and callable body are all known to the compiler. 
+This understanding is crucial for TNL. Native TNL higher-order functions are designed for very fine-grained callbacks, often one call per element, and in the CUDA case they may also need to be compiled into device code. A native #cpp lambda works well in this environment because its type, capture layout, and callable body are all known to the compiler.
 
-A Python lambda passed through nanobind does not have these properties. Its captured state lives in Python objects, its body is not available to the #cpp compiler, and it cannot be inlined into templated TNL kernels or compiled as `__cuda_callable__` device code. It fundamentally cannot be as the PyTNL module compilation happens way before any user code is executed. nanobind therefore makes the interface look similar, but not equivalent in implementation.
+A Python lambda passed through nanobind does not have these properties. Its captured state lives in Python objects, its body is not available to the #cpp compiler, and it cannot be inlined into templated TNL kernels or compiled as `__cuda_callable__` device code. It fundamentally cannot be as the PyTNL module compilation happens way before any user code is executed. Nanobind therefore makes the interface look similar, but not equivalent in implementation.
 
 For PyTNL this means that nanobind on its own is perfectly capable of exposing callback-based APIs that accept Python lambdas, but such callbacks are best viewed as interoperability features, not as a path to native-performance generic programming. They are suitable when convenience is more important than throughput, or when the callback is invoked only occasionally. They are much less suitable for element-wise loops over large arrays, where the interpreter and conversion overhead is paid for every single element. This is later demonstrated in the benchmark section.
 
@@ -163,7 +163,7 @@ The main obstacles to native performance can be summarized as follows:
 - *Initial bound-call overhead.* Calling the exposed PyTNL method from Python still goes through nanobind's ordinary function-binding machinery. This cost is paid once per top-level call and is usually not the dominant problem in the present use case.
 - *Repeated callback dispatch.* Once inside the bound method, every invocation of the Python callback still passes through a nanobind/Python adapter path. For TNL-style element-wise execution this repeated dispatch is paid once per element and accumulates quickly.
 - *Argument and return-value conversion.* Each callback invocation crosses the Python-#cpp boundary in both directions. Input values must be boxed into Python objects and the result must be converted back to a native #cpp type.
-- *Interpreter execution.* The callback body is still executed as Python code from the point of view of the binding layer. nanobind makes passing the callback convenient, but it does not make the callback itself native machine code.
+- *Interpreter execution.* The callback body is still executed as Python code from the point of view of the binding layer. Nanobind makes passing the callback convenient, but it does not make the callback itself native machine code.
 - *GIL constraints.* Entering Python requires interpreter coordination and holding the global interpreter lock. This limits parallel execution and makes Python callbacks a poor match for the highly parallel execution model expected by TNL.
 - *No compiler visibility into the callback.* The #cpp compiler cannot see the callback body or its captured state, so it cannot inline it, optimize around it, or treat it as an ordinary compile-time callable in templated code.
 - *No device-code path.* A Python callback cannot be compiled as `__cuda_callable__` code and cannot be embedded directly into CUDA kernels. This prevents it from serving as a true substitute for native TNL lambdas on the GPU.
@@ -190,25 +190,25 @@ The standard entry point to Numba is the `@jit` decorator. It marks a Python fun
 
 For performance-oriented use, the most important mode is Numba's so-called nopython mode. In this mode, the compiled region operates entirely on native values and no longer relies on the Python interpreter while running. The `@njit` decorator is the conventional spelling for this usage and corresponds to `@jit(nopython=True)`. For this thesis, `@jit`/`@njit` were the most natural first experiment because they preserve the most ergonomic programming model: the user still writes a normal Python function and can invoke it from Python almost as usual, while hoping that the hot loop itself will run at native speed.
 
-The resulting function however still remains a Python object that does not directly expose the compiled code to the #cpp side. It can be passed through nanobind as a callback, but calling it still requires invoking the Python interpreter and the data still must be transformed to Python data types. The JIT compilation therefore only speeds up the actual execution of the callback body. 
+The resulting function however still remains a Python object that does not directly expose the compiled code to the #cpp side. It can be passed through nanobind as a callback, but calling it still requires invoking the Python interpreter and the data still must be transformed to Python data types. The JIT compilation therefore only speeds up the actual execution of the callback body.
 
 #code1(
   [Example of a callback Python function decorated with `@jit` in nopython mode.],
   <numba_jit_example>,
-```python
-import numpy as np
-from numba import njit
+  ```python
+  import numpy as np
+  from numba import njit
 
-FACTOR = 2.0
+  FACTOR = 2.0
 
-@jit(nopython=True)
-def _nb_jit_double(x: float) -> float:
-    return x * FACTOR
+  @jit(nopython=True)
+  def _nb_jit_double(x: float) -> float:
+      return x * FACTOR
 
-vec = bpcode.DoubleVector([1.0, 2.0, 3.0, 4.0, 5.0])
-vec.mapAll_stdfunc(_nb_jit_double)
-assert vec == [2.0, 4.0, 6.0, 8.0, 10.0]
-```,
+  vec = bpcode.DoubleVector([1.0, 2.0, 3.0, 4.0, 5.0])
+  vec.mapAll_stdfunc(_nb_jit_double)
+  assert vec == [2.0, 4.0, 6.0, 8.0, 10.0]
+  ```,
 )
 
 === Numba `@cfunc` <numba_cfunc_introduction>
@@ -452,9 +452,9 @@ Using `nvcc` to dynamically compile code at runtime is further explored in @sph_
 // TODO: rethink this todo
 // #todo[Maybe the section could be moved before NVRTC as it doesn't reference it. Yet it does reference the Numba. Numba-cuda however should be close by to the NVRTC... So the numba-cuda and the nvrtc could be moved below together as some kind of GPU section?]
 
-Taking a step back from the kernels and runtime compilation, this section describes a benchmark designed to measure the performance of different approaches of passing user callbacks from Python to #cpp as originally described in @pytnl_nanobind_callbacks. The goal is to determine if the approach could eventually be close enough to desired native performance of standalone TNL code and if not, where the main bottlenecks are. 
+Taking a step back from the kernels and runtime compilation, this section describes a benchmark designed to measure the performance of different approaches of passing user callbacks from Python to #cpp as originally described in @pytnl_nanobind_callbacks. The goal is to determine if the approach could eventually be close enough to desired native performance of standalone TNL code and if not, where the main bottlenecks are.
 
-Note that as was explored, GPU execution is not really feasible with this callback model so the benchmark shows only CPU and purely sequential execution. 
+Note that as was explored, GPU execution is not really feasible with this callback model so the benchmark shows only CPU and purely sequential execution.
 
 The scenarios also do not run on actual PyTNL containers, but on a custom `DoubleVector` class, simple wrapper of `std::vector<double>`. It exposes different methods that apply a user defined operation to each element of the vector. In the first scenario, the operation is a simple multiplication by 2.0. Benchmark compares all the approaches described in @pytnl_nanobind_callbacks and expands them with JIT-compiled Numba variants of the operation. All the JIT variants are warmed up before the benchmark so the timings do not include the compilation time.
 
@@ -487,13 +487,13 @@ Results of the first scenario are shown in the @benchmark_scenario_a_table below
   ],
 ) <benchmark_scenario_a_table>
 
-Right away, it is clear that the callbacks, with the exception of Numba's `@cfunc`s, are not competitive with the native approaches. They are in fact even slower then the pure Python list iteration, which is the first strong indication the binding overhead and language boundary crossings cause a significant slowdown and the issue is not necessarily the execution speed (i.e., the Python interpreting speed) of the callback body. 
+Right away, it is clear that the callbacks, with the exception of Numba's `@cfunc`s, are not competitive with the native approaches. They are in fact even slower then the pure Python list iteration, which is the first strong indication the binding overhead and language boundary crossings cause a significant slowdown and the issue is not necessarily the execution speed (i.e., the Python interpreting speed) of the callback body.
 
-The cases using Numba JIT-compiled functions through `mapAll` methods further confirm this as, surprisingly, they are even slower than the pure Python callbacks. The execution time of the JIT-compiled function itself should very much compete with the native `multiplyAll` method and the fact that the `@cfunc` variants do indeed reach same order of magnitude confirms that. 
+The cases using Numba JIT-compiled functions through `mapAll` methods further confirm this as, surprisingly, they are even slower than the pure Python callbacks. The execution time of the JIT-compiled function itself should very much compete with the native `multiplyAll` method and the fact that the `@cfunc` variants do indeed reach same order of magnitude confirms that.
 
 If the bottleneck isn't the callback execution itself, it leaves just the overhead of crossing the data across the language boundary each time the function is called. That would even explain why the JIT compiled variants are slower then the pure Python callbacks. In them the boundary is in fact crossed twice. The data first cross into Python only to be converted once again into #cpp types for the Numba function. Same thing happens to the return value on the way back.
 
-As last confirmation, the benchmark implements a second scenario with a heavier element-wise compute, namely `sin(x) + cos(x) dot sqrt(|x|+1)`. This should shift the bottleneck more toward the execution of the callback body and away from the language boundary crossing. If that is the case, then the JIT-compiled variants could finally show their advantage and show better relative performance compared to the pure Python callbacks. Results below in the @benchmark_scenario_b_table confirm this. 
+As last confirmation, the benchmark implements a second scenario with a heavier element-wise compute, namely `sin(x) + cos(x) dot sqrt(|x|+1)`. This should shift the bottleneck more toward the execution of the callback body and away from the language boundary crossing. If that is the case, then the JIT-compiled variants could finally show their advantage and show better relative performance compared to the pure Python callbacks. Results below in the @benchmark_scenario_b_table confirm this.
 
 #figure(
   table(
@@ -521,7 +521,7 @@ As last confirmation, the benchmark implements a second scenario with a heavier 
   ],
 ) <benchmark_scenario_b_table>
 
-The benchmark also yields some positive results. The difference between different binding methods is negligible, which means that the choice between `nb::object`, `nb::callable` and `std::function` can be made based on convenience and flexibility rather than performance. 
+The benchmark also yields some positive results. The difference between different binding methods is negligible, which means that the choice between `nb::object`, `nb::callable` and `std::function` can be made based on convenience and flexibility rather than performance.
 
 And most importantly, the `@cfunc` variants confirm that JIT compilation can indeed bring the performance of Python callbacks much closer to native code and as such is definitely a step in the right direction. In the second scenarios, they are actually on par with the native `heavyComputeAll` method and clearly outperform even the Numpy ufuncs.
 
