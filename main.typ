@@ -2,9 +2,12 @@
 #import "@preview/fletcher:0.5.7" as fletcher: diagram, edge, node
 #import "@preview/dashy-todo:0.1.3": todo
 
-// TODO
 #let acknowledgment = [
-  TODO: Poděkování
+  I would like to thank my supervisor, doc. Ing. Tomáš Oberhuber Ph.D., for his continuous guidance through the topic, for his support and insights that helped me overcome all the challanges.
+
+  I will be forever grateful to my family for their unconditional support, not only in my studies but in all aspects of my life.
+
+  Finally, I thank all my friends for all the, very much needed, pep~talks, encouragements and  all the fun times that keep me going.
 ]
 
 #let declaration = [
