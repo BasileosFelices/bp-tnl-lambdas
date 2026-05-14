@@ -86,7 +86,7 @@
 //   }
 // }
 
-#include "s_tool_intro.typ"
+differentiable#include "s_tool_intro.typ"
 
 // == PyTorch, TensorFlow??
 
